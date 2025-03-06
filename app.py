@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from routes.routes import init_routes
 from db.db import init_app
@@ -23,4 +24,5 @@ init_app(app)
 init_routes(app)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))  # Use PORT from Render or default to 10000
+    app.run(host="0.0.0.0", port=port, debug=True)
