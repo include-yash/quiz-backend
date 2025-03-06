@@ -10,12 +10,13 @@ app = Flask(__name__)
 # Enable CORS for all routes, allowing requests from http://localhost:5173
 CORS(app, resources={
     r"/*": {
-        "origins": ["http://localhost:5173", "https://quiz-frontend-five-alpha.vercel.app/"],  # Frontend URL
-        "supports_credentials": True,  # Allow sending cookies (if needed)
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Allow all methods
-        "allow_headers": ["Content-Type", "Authorization"]  # Allow necessary headers
+        "origins": ["http://localhost:5173", "https://quiz-frontend-five-alpha.vercel.app"],
+        "supports_credentials": True,
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "Access-Control-Allow-Credentials"]
     }
 })
+
 
 # Initialize database functions
 init_app(app)
