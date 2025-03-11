@@ -12,7 +12,7 @@ app = Flask(__name__)
 CORS(
     app,
     supports_credentials=True,
-    origins=["http://localhost:5173"],  # Allow requests from your frontend
+    origins=["http://localhost:5173", "https://quiz-frontend-git-main-include-yashs-projects.vercel.app", "https://quiz-frontend-five-alpha.vercel.app/"],  # Allow requests from your frontend
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Allow these HTTP methods
     allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],  # Allow these headers
 )
