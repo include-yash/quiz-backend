@@ -9,9 +9,11 @@ def get_db():
         g.db = sqlite3.connect(
             DATABASE,
             detect_types=sqlite3.PARSE_DECLTYPES,
-            timeout=30
+            timeout=60  # Increase timeout to 60 seconds
         )
         g.db.row_factory = sqlite3.Row
+        # Enable WAL mode
+        g.db.execute('PRAGMA journal_mode=WAL;')
     return g.db
 
 def close_db(e=None):
