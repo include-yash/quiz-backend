@@ -1,19 +1,15 @@
-import sqlite3
+import psycopg2
 from flask import g
 import click
+import os
 
-DATABASE = 'quiz_app4.db'  # Replace with your database file name
+# PostgreSQL Database URL (Replace with Railway's connection string)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db():
     if 'db' not in g:
-        g.db = sqlite3.connect(
-            DATABASE,
-            detect_types=sqlite3.PARSE_DECLTYPES,
-            timeout=60  # Increase timeout to 60 seconds
-        )
-        g.db.row_factory = sqlite3.Row
-        # Enable WAL mode
-        g.db.execute('PRAGMA journal_mode=WAL;')
+        g.db = psycopg2.connect(DATABASE_URL)
+        g.db.autocommit = True
     return g.db
 
 def close_db(e=None):
@@ -24,13 +20,15 @@ def close_db(e=None):
 def init_db():
     db = get_db()
     with open('schema.sql', 'r') as f:
-        db.executescript(f.read())
-    db.commit()
+        cursor = db.cursor()
+        cursor.execute(f.read())
+        db.commit()
+        cursor.close()
 
 @click.command('init-db')
 def init_db_command():
     init_db()
-    click.echo('Initialized the database.')
+    click.echo('Initialized the PostgreSQL database.')
 
 def init_app(app):
     app.teardown_appcontext(close_db)

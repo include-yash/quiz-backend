@@ -15,18 +15,20 @@ class Student:
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
-            'INSERT INTO students (name, email, section, department, batch_year, password) VALUES (?, ?, ?, ?, ?, ?)',
+            'INSERT INTO students (name, email, section, department, batch_year, password) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id',
             (self.name, self.email, self.section, self.department, self.batch_year, self.password)
         )
+        self.id = cursor.fetchone()[0]  # Retrieve the last inserted ID
         db.commit()
-        self.id = cursor.lastrowid  # Retrieve the last inserted ID
 
     @classmethod
     def get_by_email(cls, email):
         db = get_db()
-        student = db.execute(
-            'SELECT * FROM students WHERE email = ?', (email,)
-        ).fetchone()
+        cursor = db.cursor()
+        cursor.execute(
+            'SELECT * FROM students WHERE email = %s', (email,)
+        )
+        student = cursor.fetchone()
         if student:
             return cls(
                 id=student['id'],
@@ -52,18 +54,20 @@ class Teacher:
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
-            'INSERT INTO teachers (name, email, department, password) VALUES (?, ?, ?, ?)',
+            'INSERT INTO teachers (name, email, department, password) VALUES (%s, %s, %s, %s) RETURNING id',
             (self.name, self.email, self.department, self.password)
         )
+        self.id = cursor.fetchone()[0]  # Retrieve the last inserted ID
         db.commit()
-        self.id = cursor.lastrowid  # Retrieve the last inserted ID
 
     @classmethod
     def get_by_email(cls, email):
         db = get_db()
-        teacher = db.execute(
-            'SELECT * FROM teachers WHERE email = ?', (email,)
-        ).fetchone()
+        cursor = db.cursor()
+        cursor.execute(
+            'SELECT * FROM teachers WHERE email = %s', (email,)
+        )
+        teacher = cursor.fetchone()
         if teacher:
             return cls(
                 id=teacher['id'],
@@ -73,6 +77,7 @@ class Teacher:
                 password=teacher['password']
             )
         return None
+
 
 class Quiz:
     def __init__(self, quiz_name, section, batch_year, department, teacher_id, questions, timer, id=None):
@@ -89,11 +94,11 @@ class Quiz:
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
-            'INSERT INTO quizzes (quiz_name, section, batch_year, department, teacher_id, questions, timer) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO quizzes (quiz_name, section, batch_year, department, teacher_id, questions, timer) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id',
             (self.quiz_name, self.section, self.batch_year, self.department, self.teacher_id, self.questions, self.timer)
         )
+        self.id = cursor.fetchone()[0]  # Retrieve the last inserted ID
         db.commit()
-        self.id = cursor.lastrowid  # Retrieve the last inserted ID
 
     @classmethod
     def get_by_section(cls, section):
@@ -101,10 +106,11 @@ class Quiz:
         Retrieve quizzes from the database by section.
         """
         db = get_db()
-        quizzes = db.execute(
-            'SELECT * FROM quizzes WHERE section = ?', (section,)
-        ).fetchall()
-
+        cursor = db.cursor()
+        cursor.execute(
+            'SELECT * FROM quizzes WHERE section = %s', (section,)
+        )
+        quizzes = cursor.fetchall()
         if quizzes:
             return [cls(
                 quiz_name=quiz['quiz_name'],
@@ -113,7 +119,7 @@ class Quiz:
                 department=quiz['department'],
                 teacher_id=quiz['teacher_id'],
                 questions=quiz['questions'],  # Assuming questions are stored as JSON string
-                timer=quiz['timer']  # Deserialize the timer
+                timer=quiz['timer']  # Deserialize the timer if needed
             ) for quiz in quizzes]
         return []
 
@@ -123,10 +129,11 @@ class Quiz:
         Retrieve quizzes from the database by teacher_id.
         """
         db = get_db()
-        quizzes = db.execute(
-            'SELECT * FROM quizzes WHERE teacher_id = ?', (teacher_id,)
-        ).fetchall()
-
+        cursor = db.cursor()
+        cursor.execute(
+            'SELECT * FROM quizzes WHERE teacher_id = %s', (teacher_id,)
+        )
+        quizzes = cursor.fetchall()
         if quizzes:
             return [
                 {
@@ -149,11 +156,12 @@ class Quiz:
         Retrieve a quiz from the database by quiz_name and teacher_id.
         """
         db = get_db()
-        quiz = db.execute(
-            'SELECT * FROM quizzes WHERE quiz_name = ? AND teacher_id = ?',
+        cursor = db.cursor()
+        cursor.execute(
+            'SELECT * FROM quizzes WHERE quiz_name = %s AND teacher_id = %s',
             (quiz_name, teacher_id)
-        ).fetchone()
-
+        )
+        quiz = cursor.fetchone()
         if quiz:
             return cls(
                 quiz_name=quiz['quiz_name'],
@@ -161,7 +169,7 @@ class Quiz:
                 batch_year=quiz['batch_year'],
                 department=quiz['department'],
                 teacher_id=quiz['teacher_id'],
-                questions=quiz['questions'],  # Deserialize the JSON questions
+                questions=quiz['questions'],  # Deserialize the JSON questions if needed
                 timer=quiz['timer']  # Return the timer value
             )
         return None
@@ -172,11 +180,12 @@ class Quiz:
         Retrieve quizzes from the database by section, batch_year, and department.
         """
         db = get_db()
-        quizzes = db.execute(
-            'SELECT * FROM quizzes WHERE section = ? AND batch_year = ? AND department = ?',
+        cursor = db.cursor()
+        cursor.execute(
+            'SELECT * FROM quizzes WHERE section = %s AND batch_year = %s AND department = %s',
             (section, batch_year, department)
-        ).fetchall()
-
+        )
+        quizzes = cursor.fetchall()
         if quizzes:
             return [cls(
                 id=quiz['id'],
@@ -185,7 +194,7 @@ class Quiz:
                 batch_year=quiz['batch_year'],
                 department=quiz['department'],
                 teacher_id=quiz['teacher_id'],
-                questions=quiz['questions'],  # Deserialize the JSON questions
+                questions=quiz['questions'],  # Deserialize the JSON questions if needed
                 timer=quiz['timer']  # Include the timer
             ) for quiz in quizzes]
         return []
@@ -196,11 +205,12 @@ class Quiz:
         Retrieve a quiz from the database by quiz_name and id.
         """
         db = get_db()
-        quiz = db.execute(
-            'SELECT * FROM quizzes WHERE quiz_name = ? AND id = ?',
+        cursor = db.cursor()
+        cursor.execute(
+            'SELECT * FROM quizzes WHERE quiz_name = %s AND id = %s',
             (quiz_name, quiz_id)
-        ).fetchone()
-
+        )
+        quiz = cursor.fetchone()
         if quiz:
             return {
                 "id": quiz['id'],
@@ -213,6 +223,7 @@ class Quiz:
                 "timer": quiz['timer']  # Include the timer
             }
         return None
+
 class Score:
     def __init__(self, student_id, quiz_id, student_name, score, section, department, submission_time, id=None):
         self.id = id  # Optional, as id will be auto-generated
@@ -228,11 +239,11 @@ class Score:
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
-            'INSERT INTO scores (student_id, quiz_id, student_name, score, section, department, submitted_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO scores (student_id, quiz_id, student_name, score, section, department, submitted_at) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id',
             (self.student_id, self.quiz_id, self.student_name, self.score, self.section, self.department, self.submission_time)
         )
+        self.id = cursor.fetchone()[0]  # Retrieve the last inserted ID
         db.commit()
-        self.id = cursor.lastrowid  # Retrieve the last inserted ID
 
     @classmethod
     def get_by_student_and_quiz(cls, student_id, quiz_id):
@@ -240,10 +251,12 @@ class Score:
         Retrieve a score for a specific student and quiz as a dictionary.
         """
         db = get_db()
-        score = db.execute(
-            'SELECT * FROM scores WHERE student_id = ? AND quiz_id = ?',
+        cursor = db.cursor()
+        cursor.execute(
+            'SELECT * FROM scores WHERE student_id = %s AND quiz_id = %s',
             (student_id, quiz_id)
-        ).fetchone()
+        )
+        score = cursor.fetchone()
         if score:
             return {
                 "id": score['id'],
@@ -263,10 +276,12 @@ class Score:
         Retrieve unique quiz IDs attempted by a specific student as a list of dictionaries.
         """
         db = get_db()
-        quizzes = db.execute(
-            'SELECT DISTINCT quiz_id FROM scores WHERE student_id = ?',
+        cursor = db.cursor()
+        cursor.execute(
+            'SELECT DISTINCT quiz_id FROM scores WHERE student_id = %s',
             (student_id,)
-        ).fetchall()
+        )
+        quizzes = cursor.fetchall()
         return [{"quiz_id": quiz["quiz_id"]} for quiz in quizzes] if quizzes else []
 
     @classmethod
@@ -275,10 +290,12 @@ class Score:
         Retrieve all scores for a specific quiz as a list of dictionaries.
         """
         db = get_db()
-        scores = db.execute(
-            'SELECT * FROM scores WHERE quiz_id = ?',
+        cursor = db.cursor()
+        cursor.execute(
+            'SELECT * FROM scores WHERE quiz_id = %s',
             (quiz_id,)
-        ).fetchall()
+        )
+        scores = cursor.fetchall()
         return [
             {
                 "id": score['id'],
@@ -293,7 +310,6 @@ class Score:
             for score in scores
         ] if scores else []
 
-from db.db import get_db
 
 class TabSwitchEvent:
     def __init__(self, quiz_id, student_id, student_name, timestamp, id=None):
@@ -310,11 +326,11 @@ class TabSwitchEvent:
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
-            'INSERT INTO tab_switch_events (quiz_id, student_id, student_name, timestamp) VALUES (?, ?, ?, ?)',
+            'INSERT INTO tab_switch_events (quiz_id, student_id, student_name, timestamp) VALUES (%s, %s, %s, %s) RETURNING id',
             (self.quiz_id, self.student_id, self.student_name, self.timestamp)
         )
+        self.id = cursor.fetchone()[0]  # Retrieve the last inserted ID
         db.commit()
-        self.id = cursor.lastrowid  # Retrieve the last inserted ID
 
     @classmethod
     def get_by_quiz_id(cls, quiz_id):
@@ -322,11 +338,12 @@ class TabSwitchEvent:
         Retrieve all tab switch events for a specific quiz_id.
         """
         db = get_db()
-        events = db.execute(
-            'SELECT * FROM tab_switch_events WHERE quiz_id = ?',
+        cursor = db.cursor()
+        cursor.execute(
+            'SELECT * FROM tab_switch_events WHERE quiz_id = %s',
             (quiz_id,)
-        ).fetchall()
-
+        )
+        events = cursor.fetchall()
         if events:
             return [
                 cls(
@@ -339,27 +356,3 @@ class TabSwitchEvent:
                 for event in events
             ]
         return []
-
-@classmethod
-def get_by_quiz_id(cls, quiz_id):
-    """
-    Retrieve all tab switch events for a specific quiz_id.
-    """
-    db = get_db()
-    events = db.execute(
-        'SELECT * FROM tab_switch_events WHERE quiz_id = ?', (quiz_id,)
-    ).fetchall()
-
-    if events:
-        return [
-            cls(
-                id=event['id'],
-                quiz_id=event['quiz_id'],
-                student_id=event['student_id'],
-                student_name=event['student_name'],
-                timestamp=event['timestamp']
-            )
-            for event in events
-        ]
-    return []
-
