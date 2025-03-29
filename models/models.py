@@ -31,13 +31,13 @@ class Student:
         student = cursor.fetchone()
         if student:
             return cls(
-                id=student['id'],
-                name=student['name'],
-                email=student['email'],
-                section=student['section'],
-                department=student['department'],
-                batch_year=student['batch_year'],
-                password=student['password']
+                id=student[0],  # PostgreSQL returns tuples by default unless configured otherwise
+                name=student[1],
+                email=student[2],
+                section=student[3],
+                department=student[4],
+                batch_year=student[5],
+                password=student[6]
             )
         return None
 
@@ -70,11 +70,11 @@ class Teacher:
         teacher = cursor.fetchone()
         if teacher:
             return cls(
-                id=teacher['id'],
-                name=teacher['name'],
-                email=teacher['email'],
-                department=teacher['department'],
-                password=teacher['password']
+                id=teacher[0],
+                name=teacher[1],
+                email=teacher[2],
+                department=teacher[3],
+                password=teacher[4]
             )
         return None
 
@@ -93,9 +93,11 @@ class Quiz:
     def save(self):
         db = get_db()
         cursor = db.cursor()
+        # Convert questions to JSON string if it's a dictionary
+        questions_json = json.dumps(self.questions) if isinstance(self.questions, dict) else self.questions
         cursor.execute(
             'INSERT INTO quizzes (quiz_name, section, batch_year, department, teacher_id, questions, timer) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id',
-            (self.quiz_name, self.section, self.batch_year, self.department, self.teacher_id, self.questions, self.timer)
+            (self.quiz_name, self.section, self.batch_year, self.department, self.teacher_id, questions_json, self.timer)
         )
         self.id = cursor.fetchone()[0]  # Retrieve the last inserted ID
         db.commit()
@@ -113,13 +115,14 @@ class Quiz:
         quizzes = cursor.fetchall()
         if quizzes:
             return [cls(
-                quiz_name=quiz['quiz_name'],
-                section=quiz['section'],
-                batch_year=quiz['batch_year'],
-                department=quiz['department'],
-                teacher_id=quiz['teacher_id'],
-                questions=quiz['questions'],  # Assuming questions are stored as JSON string
-                timer=quiz['timer']  # Deserialize the timer if needed
+                id=quiz[0],
+                quiz_name=quiz[1],
+                section=quiz[2],
+                batch_year=quiz[3],
+                department=quiz[4],
+                teacher_id=quiz[5],
+                questions=quiz[6],  # Assuming questions are stored as JSON string
+                timer=quiz[7]  # Deserialize the timer if needed
             ) for quiz in quizzes]
         return []
 
@@ -137,14 +140,14 @@ class Quiz:
         if quizzes:
             return [
                 {
-                    "id": quiz["id"],
-                    "quiz_name": quiz["quiz_name"],
-                    "section": quiz["section"],
-                    "batch_year": quiz["batch_year"],
-                    "department": quiz["department"],
-                    "teacher_id": quiz["teacher_id"],
-                    "questions": quiz["questions"],  # Assuming questions are stringified JSON
-                    "timer": quiz["timer"]  # Adding timer here
+                    "id": quiz[0],
+                    "quiz_name": quiz[1],
+                    "section": quiz[2],
+                    "batch_year": quiz[3],
+                    "department": quiz[4],
+                    "teacher_id": quiz[5],
+                    "questions": quiz[6],  # Assuming questions are stringified JSON
+                    "timer": quiz[7]  # Adding timer here
                 }
                 for quiz in quizzes
             ]
@@ -164,13 +167,14 @@ class Quiz:
         quiz = cursor.fetchone()
         if quiz:
             return cls(
-                quiz_name=quiz['quiz_name'],
-                section=quiz['section'],
-                batch_year=quiz['batch_year'],
-                department=quiz['department'],
-                teacher_id=quiz['teacher_id'],
-                questions=quiz['questions'],  # Deserialize the JSON questions if needed
-                timer=quiz['timer']  # Return the timer value
+                id=quiz[0],
+                quiz_name=quiz[1],
+                section=quiz[2],
+                batch_year=quiz[3],
+                department=quiz[4],
+                teacher_id=quiz[5],
+                questions=quiz[6],  # Deserialize the JSON questions if needed
+                timer=quiz[7]  # Return the timer value
             )
         return None
 
@@ -188,14 +192,14 @@ class Quiz:
         quizzes = cursor.fetchall()
         if quizzes:
             return [cls(
-                id=quiz['id'],
-                quiz_name=quiz['quiz_name'],
-                section=quiz['section'],
-                batch_year=quiz['batch_year'],
-                department=quiz['department'],
-                teacher_id=quiz['teacher_id'],
-                questions=quiz['questions'],  # Deserialize the JSON questions if needed
-                timer=quiz['timer']  # Include the timer
+                id=quiz[0],
+                quiz_name=quiz[1],
+                section=quiz[2],
+                batch_year=quiz[3],
+                department=quiz[4],
+                teacher_id=quiz[5],
+                questions=quiz[6],  # Deserialize the JSON questions if needed
+                timer=quiz[7]  # Include the timer
             ) for quiz in quizzes]
         return []
     
@@ -213,16 +217,17 @@ class Quiz:
         quiz = cursor.fetchone()
         if quiz:
             return {
-                "id": quiz['id'],
-                "quiz_name": quiz['quiz_name'],
-                "section": quiz['section'],
-                "batch_year": quiz['batch_year'],
-                "department": quiz['department'],
-                "teacher_id": quiz['teacher_id'],
-                "questions": quiz['questions'],  # Assuming questions are stored as JSON string
-                "timer": quiz['timer']  # Include the timer
+                "id": quiz[0],
+                "quiz_name": quiz[1],
+                "section": quiz[2],
+                "batch_year": quiz[3],
+                "department": quiz[4],
+                "teacher_id": quiz[5],
+                "questions": quiz[6],  # Assuming questions are stored as JSON string
+                "timer": quiz[7]  # Include the timer
             }
         return None
+
 
 class Score:
     def __init__(self, student_id, quiz_id, student_name, score, section, department, submission_time, id=None):
@@ -259,14 +264,14 @@ class Score:
         score = cursor.fetchone()
         if score:
             return {
-                "id": score['id'],
-                "student_id": score['student_id'],
-                "student_name": score['student_name'],
-                "quiz_id": score['quiz_id'],
-                "score": score['score'],
-                "section": score['section'],
-                "department": score['department'],
-                "submission_time": score['submitted_at']
+                "id": score[0],
+                "student_id": score[1],
+                "student_name": score[2],
+                "quiz_id": score[3],
+                "score": score[4],
+                "section": score[5],
+                "department": score[6],
+                "submission_time": score[7]
             }
         return None
 
@@ -282,7 +287,7 @@ class Score:
             (student_id,)
         )
         quizzes = cursor.fetchall()
-        return [{"quiz_id": quiz["quiz_id"]} for quiz in quizzes] if quizzes else []
+        return [{"quiz_id": quiz[0]} for quiz in quizzes] if quizzes else []
 
     @classmethod
     def get_scores_by_quiz(cls, quiz_id):
@@ -298,14 +303,14 @@ class Score:
         scores = cursor.fetchall()
         return [
             {
-                "id": score['id'],
-                "student_id": score['student_id'],
-                "student_name": score['student_name'],
-                "quiz_id": score['quiz_id'],
-                "score": score['score'],
-                "section": score['section'],
-                "department": score['department'],
-                "submission_time": score['submitted_at']
+                "id": score[0],
+                "student_id": score[1],
+                "student_name": score[2],
+                "quiz_id": score[3],
+                "score": score[4],
+                "section": score[5],
+                "department": score[6],
+                "submission_time": score[7]
             }
             for score in scores
         ] if scores else []
@@ -347,11 +352,11 @@ class TabSwitchEvent:
         if events:
             return [
                 cls(
-                    id=event['id'],
-                    quiz_id=event['quiz_id'],
-                    student_id=event['student_id'],
-                    student_name=event['student_name'],
-                    timestamp=event['timestamp']
+                    id=event[0],
+                    quiz_id=event[1],
+                    student_id=event[2],
+                    student_name=event[3],
+                    timestamp=event[4]
                 )
                 for event in events
             ]
