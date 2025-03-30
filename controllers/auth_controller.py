@@ -47,6 +47,7 @@ def parse_teacher_email(email):
 # Student Sign-up function
 def student_signup():
     data = request.json  # Get data from the frontend
+    print("data is",data)
     name, department, batch_year = parse_student_email(data['email']) 
 
     # Check if student already exists

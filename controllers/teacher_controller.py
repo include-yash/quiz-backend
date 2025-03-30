@@ -72,6 +72,7 @@ def get_tab_switch_events_by_quiz_id(quiz_id):
 
         # Fetch the tab switch events for the given quiz_id
         events = TabSwitchEvent.get_by_quiz_id(quiz_id)
+        print([event.__dict__ for event in events])
         if not events:
             return jsonify({"tab_switch_events": []}), 200
 

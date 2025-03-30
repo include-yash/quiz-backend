@@ -355,8 +355,8 @@ class TabSwitchEvent:
                     id=event[0],
                     quiz_id=event[1],
                     student_id=event[2],
-                    student_name=event[3],
-                    timestamp=event[4]
+                    student_name=event[4],
+                    timestamp=event[3]
                 )
                 for event in events
             ]

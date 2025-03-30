@@ -51,3 +51,14 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
     FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE,
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS tab_switch_events (
+  id SERIAL PRIMARY KEY,
+  quiz_id INTEGER NOT NULL,
+  student_id INTEGER NOT NULL,
+  student_name TEXT,
+  timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes (id),
+  CONSTRAINT fk_student FOREIGN KEY (student_id) REFERENCES students (id)
+);
+
