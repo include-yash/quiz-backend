@@ -271,7 +271,7 @@ class Score:
                 "score": score[4],
                 "section": score[5],
                 "department": score[6],
-                "submission_time": score[7]
+                "submission_time": score[7].isoformat() if score[7] else None
             }
         return None
 
@@ -293,14 +293,29 @@ class Score:
     def get_scores_by_quiz(cls, quiz_id):
         """
         Retrieve all scores for a specific quiz as a list of dictionaries.
+        Ensure submission_time is properly formatted as ISO string.
         """
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
-            'SELECT * FROM scores WHERE quiz_id = %s',
+            '''
+            SELECT 
+                id,
+                student_id,
+                student_name,
+                quiz_id,
+                score,
+                section,
+                department,
+                submitted_at AT TIME ZONE 'UTC' AS submission_time
+            FROM scores 
+            WHERE quiz_id = %s
+            ORDER BY score DESC, submission_time ASC
+            ''',
             (quiz_id,)
         )
         scores = cursor.fetchall()
+        
         return [
             {
                 "id": score[0],
@@ -310,11 +325,10 @@ class Score:
                 "score": score[4],
                 "section": score[5],
                 "department": score[6],
-                "submission_time": score[7]
+                "submission_time": score[7].isoformat() if score[7] else None
             }
             for score in scores
         ] if scores else []
-
 
 class TabSwitchEvent:
     def __init__(self, quiz_id, student_id, student_name, timestamp, id=None):
@@ -355,8 +369,8 @@ class TabSwitchEvent:
                     id=event[0],
                     quiz_id=event[1],
                     student_id=event[2],
-                    student_name=event[4],
-                    timestamp=event[3]
+                    student_name=event[3],
+                    timestamp=event[4]
                 )
                 for event in events
             ]

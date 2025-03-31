@@ -4,6 +4,7 @@ from models.models import Quiz, Score
 from utils.decode import decode_token
 from datetime import datetime,timezone
 
+
 def get_quizzes_for_logged_in_student():
     try:
         # Extract the token from cookies
@@ -50,6 +51,51 @@ def get_quizzes_for_logged_in_student():
 
 
 def save_score():
+    try:
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({"error": "No token provided"}), 401
+
+        student_data = decode_token(token)
+        if not student_data or 'id' not in student_data:
+            return jsonify({"error": "Invalid or expired token"}), 401
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        print("Received submission:", data)  # Debug log
+
+        quiz_id = data.get('quiz_id')
+        score = data.get('score')
+
+        # Validate score is not None (can be 0)
+        if score is None:
+            return jsonify({"error": "Score is required"}), 400
+
+        # Check if already attempted
+        existing_score = Score.get_by_student_and_quiz(student_data['id'], quiz_id)
+        if existing_score:
+            return jsonify({"message": "Already submitted", "score": existing_score.score}), 200
+
+        # Save new score
+        new_score = Score(
+            student_id=student_data['id'],
+            quiz_id=quiz_id,
+            student_name=student_data.get('name', ''),
+            score=score,
+            section=student_data.get('section', ''),
+            department=student_data.get('department', ''),
+            submission_time=datetime.now(timezone.utc)
+        )
+        new_score.save()
+
+        print(f"Saved score: {score} for quiz {quiz_id}")  # Debug log
+        return jsonify({"message": "Score saved", "score": score}), 201
+
+    except Exception as e:
+        print("Error in save_score:", str(e))  # Debug log
+        return jsonify({"error": str(e)}), 500
     try:
         # Extract the token from cookies
         token = request.headers.get('Authorization')
@@ -105,39 +151,6 @@ def save_score():
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
 
-# def get_questions_by_quiz_id():
-#     try:
-#         token = request.headers.get('Authorization')  # Extract token from headers
-
-#         # Extract quiz_id and quiz_name from query parameters
-#         quiz_id = request.args.get('quiz_id')
-#         quiz_name = request.args.get('quiz_name')
-
-#         if not quiz_id or not quiz_name:
-#             return jsonify({"message": "quiz_id and quiz_name are required"}), 400
-
-#         # Retrieve the quiz from the database
-#         quiz = Quiz.get_by_name_and_id(quiz_name, quiz_id)
-
-#         if not quiz:
-#             return jsonify({"message": "No quiz found with the provided name and ID"}), 404
-
-#         # Prepare quiz data
-#         quiz_data = {
-#             "id": quiz["id"],
-#             "quiz_name": quiz["quiz_name"],
-#             "section": quiz["section"],
-#             "batch_year": quiz["batch_year"],
-#             "department": quiz["department"],
-#             "teacher_id": quiz["teacher_id"],
-#             "questions": quiz["questions"],
-#             "timer": quiz["timer"]
-#         }
-#         return jsonify({"quiz": quiz_data}), 200
-#     except Exception as e:
-#         return jsonify({"error": str(e)}), 500
-
-
 def get_questions_by_quiz_id():
     try:
         token = request.headers.get('Authorization')  # Extract token from headers
@@ -169,6 +182,7 @@ def get_questions_by_quiz_id():
             "batch_year": quiz["batch_year"],
             "department": quiz["department"],
             "teacher_id": quiz["teacher_id"],
+            "timer": quiz["timer"],
             "questions": questions,  # Properly parsed questions array
         }
         return jsonify({"quiz": quiz_data}), 200
@@ -214,21 +228,23 @@ from flask import jsonify
 
 def leaderboard(quiz_id):
     try:
-        # Validate quiz_id
         if not quiz_id:
             return jsonify({"error": "quiz_id is required"}), 400
         
         # Fetch all scores for the given quiz
         scores = Score.get_scores_by_quiz(quiz_id)
         
-        # If no scores are found, return an empty leaderboard
         if not scores:
             return jsonify({"leaderboard": []}), 200
 
         # Sort scores by score (descending) and submission time (ascending)
+        # Handle None submission times by putting them last
         sorted_scores = sorted(
             scores,
-            key=lambda x: (-x['score'], datetime.fromisoformat(x['submission_time']))
+            key=lambda x: (
+                -x['score'],
+                x['submission_time'] or "9999-12-31"  # Push nulls to end
+            )
         )
 
         # Assign ranks to the sorted scores
@@ -238,20 +254,25 @@ def leaderboard(quiz_id):
         previous_time = None
 
         for score in sorted_scores:
-            if (score['score'], score['submission_time']) != (previous_score, previous_time):
-                rank = len(leaderboard_data) + 1  # Update rank only if score or time changes
+            current_score = score['score']
+            current_time = score['submission_time']
+            
+            # Only increment rank if score or time changes
+            if (current_score, current_time) != (previous_score, previous_time):
+                rank = len(leaderboard_data) + 1
 
             leaderboard_data.append({
                 "rank": rank,
                 "student_name": score['student_name'],
-                "score": score['score'],
-                "submission_time": score['submission_time']
+                "score": current_score,
+                "submission_time": current_time or "Not submitted"  # Handle null
             })
-            previous_score = score['score']
-            previous_time = score['submission_time']
+            
+            previous_score = current_score
+            previous_time = current_time
 
         return jsonify({"leaderboard": leaderboard_data}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+        print(f"Error in leaderboard endpoint: {str(e)}")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
