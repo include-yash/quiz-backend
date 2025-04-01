@@ -34,6 +34,7 @@ def generate_token_student(student):
     return serializer.dumps(
         {
             'id': student.id,
+            'usn': student.usn,
             'name': student.name,
             'department': student.department,
             'section': student.section,

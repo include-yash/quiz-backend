@@ -1,7 +1,9 @@
 from flask import request, jsonify
-from models.models import Quiz, TabSwitchEvent
+from models.models import Quiz, TabSwitchEvent, Student
 from utils.decode import decode_token
 from datetime import datetime,timezone
+
+
 def get_quizzes_by_teacher():
     try:
         # Extract the teacher_id from the token
@@ -42,6 +44,7 @@ def add_tab_switch_event():
         
         student_id = student_data['id']
         student_name = student_data['name']
+        student_usn = student_data['usn']
         # Parse the request body to get the quiz_id
         data = request.get_json()
         if not data or 'quiz_id' not in data:
@@ -55,7 +58,8 @@ def add_tab_switch_event():
         timestamp = datetime.now(timezone.utc)   # Current timestamp
         
         # Create a new tab switch event
-        event = TabSwitchEvent(quiz_id=quiz_id, student_id=student_id,student_name=student_name, timestamp=timestamp)
+        event = TabSwitchEvent(quiz_id=quiz_id, student_id=student_id,student_name=student_name,usn=student_usn,  # USN from the token
+        timestamp=timestamp)
         event.save()  # Save the event in the database
         
         return jsonify({"message": "Tab switch event added successfully"}), 201

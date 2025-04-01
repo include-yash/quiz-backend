@@ -2,8 +2,9 @@ from db.db import get_db
 import json
 
 class Student:
-    def __init__(self, name, email, section, department, batch_year, password, id=None):
-        self.id = id  # Optional, as id will be auto-generated
+    def __init__(self, usn, name, email, section, department, batch_year, password, id=None):
+        self.id = id 
+        self.usn = usn  # USN is now a required field
         self.name = name
         self.email = email
         self.section = section
@@ -15,10 +16,10 @@ class Student:
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
-            'INSERT INTO students (name, email, section, department, batch_year, password) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id',
-            (self.name, self.email, self.section, self.department, self.batch_year, self.password)
+            'INSERT INTO students (usn, name, email, section, department, batch_year, password) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id',
+            (self.usn, self.name, self.email, self.section, self.department, self.batch_year, self.password)
         )
-        self.id = cursor.fetchone()[0]  # Retrieve the last inserted ID
+        self.id = cursor.fetchone()[0]
         db.commit()
 
     @classmethod
@@ -26,20 +27,28 @@ class Student:
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
-            'SELECT * FROM students WHERE email = %s', (email,)
+            'SELECT id, usn, name, email, section, department, batch_year, password FROM students WHERE email = %s', 
+            (email,)
         )
         student = cursor.fetchone()
-        if student:
-            return cls(
-                id=student[0],  # PostgreSQL returns tuples by default unless configured otherwise
-                name=student[1],
-                email=student[2],
-                section=student[3],
-                department=student[4],
-                batch_year=student[5],
-                password=student[6]
-            )
-        return None
+        
+        if not student:
+            return None
+            
+        # Verify we have all expected columns
+        if len(student) < 8:
+            raise ValueError("Invalid student data structure from database")
+            
+        return cls(
+            id=student[0],
+            usn=student[1],
+            name=student[2],
+            email=student[3],
+            section=student[4],
+            department=student[5],
+            batch_year=student[6],
+            password=student[7]
+        )
 
 
 class Teacher:
@@ -230,11 +239,12 @@ class Quiz:
 
 
 class Score:
-    def __init__(self, student_id, quiz_id, student_name, score, section, department, submission_time, id=None):
-        self.id = id  # Optional, as id will be auto-generated
+    def __init__(self, student_id, quiz_id, student_name, usn, score, section, department, submission_time, id=None):
+        self.id = id
         self.student_id = student_id
         self.quiz_id = quiz_id
         self.student_name = student_name
+        self.usn = usn  # Add USN field
         self.score = score
         self.section = section
         self.department = department
@@ -244,10 +254,10 @@ class Score:
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
-            'INSERT INTO scores (student_id, quiz_id, student_name, score, section, department, submitted_at) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id',
-            (self.student_id, self.quiz_id, self.student_name, self.score, self.section, self.department, self.submission_time)
+            'INSERT INTO scores (student_id, quiz_id, student_name, usn, score, section, department, submitted_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id',
+            (self.student_id, self.quiz_id, self.student_name, self.usn, self.score, self.section, self.department, self.submission_time)
         )
-        self.id = cursor.fetchone()[0]  # Retrieve the last inserted ID
+        self.id = cursor.fetchone()[0]
         db.commit()
 
     @classmethod
@@ -271,7 +281,8 @@ class Score:
                 "score": score[4],
                 "section": score[5],
                 "department": score[6],
-                "submission_time": score[7].isoformat() if score[7] else None
+                "submission_time": score[7].isoformat() if score[7] else None,
+                "usn": score[8]  # Add USN to the dictionary
             }
         return None
 
@@ -292,7 +303,7 @@ class Score:
     @classmethod
     def get_scores_by_quiz(cls, quiz_id):
         """
-        Retrieve all scores for a specific quiz as a list of dictionaries.
+        Retrieve all scores for a specific quiz as a list of dictionaries, including USN.
         Ensure submission_time is properly formatted as ISO string.
         """
         db = get_db()
@@ -300,17 +311,19 @@ class Score:
         cursor.execute(
             '''
             SELECT 
-                id,
-                student_id,
-                student_name,
-                quiz_id,
-                score,
-                section,
-                department,
-                submitted_at AT TIME ZONE 'UTC' AS submission_time
-            FROM scores 
-            WHERE quiz_id = %s
-            ORDER BY score DESC, submission_time ASC
+                s.id,
+                s.student_id,
+                s.student_name,
+                s.quiz_id,
+                s.score,
+                s.section,
+                s.department,
+                s.submitted_at AT TIME ZONE 'UTC' AS submission_time,
+                st.usn
+            FROM scores s
+            JOIN students st ON s.student_id = st.id
+            WHERE s.quiz_id = %s
+            ORDER BY s.score DESC, s.submission_time ASC
             ''',
             (quiz_id,)
         )
@@ -325,31 +338,36 @@ class Score:
                 "score": score[4],
                 "section": score[5],
                 "department": score[6],
-                "submission_time": score[7].isoformat() if score[7] else None
+                "submission_time": score[7].isoformat() if score[7] else None,
+                "usn": score[8]  # Add USN to the dictionary
             }
             for score in scores
         ] if scores else []
-
 class TabSwitchEvent:
-    def __init__(self, quiz_id, student_id, student_name, timestamp, id=None):
-        self.id = id  # Optional, as id will be auto-generated
+    def __init__(self, quiz_id, student_id, student_name, usn, timestamp, id=None):
+        self.id = id
         self.quiz_id = quiz_id
         self.student_id = student_id
         self.student_name = student_name
+        self.usn = usn
         self.timestamp = timestamp
 
     def save(self):
-        """
-        Save the TabSwitchEvent to the database.
-        """
-        db = get_db()
-        cursor = db.cursor()
-        cursor.execute(
-            'INSERT INTO tab_switch_events (quiz_id, student_id, student_name, timestamp) VALUES (%s, %s, %s, %s) RETURNING id',
-            (self.quiz_id, self.student_id, self.student_name, self.timestamp)
-        )
-        self.id = cursor.fetchone()[0]  # Retrieve the last inserted ID
-        db.commit()
+        try:
+            db = get_db()
+            cursor = db.cursor()
+            cursor.execute(
+                '''INSERT INTO tab_switch_events 
+                   (quiz_id, student_id, student_name, usn, timestamp) 
+                   VALUES (%s, %s, %s, %s, %s) RETURNING id''',
+                (self.quiz_id, self.student_id, self.student_name, 
+                 self.usn, self.timestamp)
+            )
+            self.id = cursor.fetchone()[0]
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise
 
     @classmethod
     def get_by_quiz_id(cls, quiz_id):
@@ -370,7 +388,8 @@ class TabSwitchEvent:
                     quiz_id=event[1],
                     student_id=event[2],
                     student_name=event[3],
-                    timestamp=event[4]
+                    usn=event[4],
+                    timestamp=event[5],
                 )
                 for event in events
             ]

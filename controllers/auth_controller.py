@@ -47,25 +47,29 @@ def parse_teacher_email(email):
 # Student Sign-up function
 def student_signup():
     data = request.json  # Get data from the frontend
-    print("data is",data)
+    print("data is", data)
     name, department, batch_year = parse_student_email(data['email']) 
 
     # Check if student already exists
     if Student.get_by_email(data['email']):
         return jsonify({"error": "Email already in use"}), 400
 
+    # Validate USN is provided
+    if not data.get('usn'):
+        return jsonify({"error": "USN is required"}), 400
+
     student = Student(
+        usn=data['usn'],  # USN from frontend
         name=name,
         email=data['email'],
         section=data['section'],
         department=department,
         batch_year=batch_year,
-        password=generate_password_hash(data['password'])  # Hash the password
+        password=generate_password_hash(data['password'])
     )
 
-    student.save()  # Save the student to MongoDB
+    student.save()  
     return jsonify({"message": "Student signed up successfully"}), 201
-
 
 # Teacher Sign-up function
 def teacher_signup():
@@ -106,11 +110,12 @@ def student_login():
         # Prepare student details to return in the response
         student_details = {
             'id': student.id,
+            'usn': student.usn,  # Include USN in the details
             'name': student.name,
             'email': student.email,
             'section': student.section,
             'department': student.department,
-            'batch_year': student.batch_year
+            'batch_year': student.batch_year,
         }
         print("Student Details:", student_details)
 
@@ -118,7 +123,7 @@ def student_login():
         response = make_response(jsonify({
             'message': 'Login successful',
             'token': token,
-            'student_details': student_details  # Include student details
+            'student_details': student_details  # Include student details with USN
         }))
         
         # Set token in cookie for secure access
@@ -130,7 +135,6 @@ def student_login():
             samesite='None',         # Allow cross-origin requests (for different ports)
             max_age=3600,            # Set expiration time (1 hour)
             domain='.localhost',  
-               # Set domain to 'localhost' to allow sharing across different ports
         )
         
         return response, 200

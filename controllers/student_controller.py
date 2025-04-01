@@ -52,14 +52,17 @@ def get_quizzes_for_logged_in_student():
 
 def save_score():
     try:
+        # Extract and validate token
         token = request.headers.get('Authorization')
         if not token:
             return jsonify({"error": "No token provided"}), 401
 
+        # Decode token to get student data
         student_data = decode_token(token)
         if not student_data or 'id' not in student_data:
             return jsonify({"error": "Invalid or expired token"}), 401
 
+        # Get and validate request data
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data provided"}), 400
@@ -69,20 +72,26 @@ def save_score():
         quiz_id = data.get('quiz_id')
         score = data.get('score')
 
-        # Validate score is not None (can be 0)
+        # Validate required fields
+        if not quiz_id:
+            return jsonify({"error": "quiz_id is required"}), 400
         if score is None:
-            return jsonify({"error": "Score is required"}), 400
+            return jsonify({"error": "score is required"}), 400
 
-        # Check if already attempted
+        # Check if student already attempted this quiz
         existing_score = Score.get_by_student_and_quiz(student_data['id'], quiz_id)
         if existing_score:
-            return jsonify({"message": "Already submitted", "score": existing_score.score}), 200
+            return jsonify({
+                "message": "Already submitted", 
+                "score": existing_score['score']
+            }), 200
 
-        # Save new score
+        # Save new score with USN
         new_score = Score(
             student_id=student_data['id'],
             quiz_id=quiz_id,
             student_name=student_data.get('name', ''),
+            usn=student_data.get('usn', ''),  # Include USN from token
             score=score,
             section=student_data.get('section', ''),
             department=student_data.get('department', ''),
@@ -91,65 +100,14 @@ def save_score():
         new_score.save()
 
         print(f"Saved score: {score} for quiz {quiz_id}")  # Debug log
-        return jsonify({"message": "Score saved", "score": score}), 201
+        return jsonify({
+            "message": "Score saved successfully!",
+            "score": score
+        }), 201
 
     except Exception as e:
         print("Error in save_score:", str(e))  # Debug log
-        return jsonify({"error": str(e)}), 500
-    try:
-        # Extract the token from cookies
-        token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({"error": "No token provided"}), 401
-
-        # Decode the token to get student information
-        student_data = decode_token(token)
-        if not student_data or 'id' not in student_data:
-            return jsonify({"error": "Invalid or expired token"}), 401
-        print("student data is",student_data)
-        # Extract necessary student information
-        student_id = student_data['id']
-        student_name = student_data['name']
-        section = student_data['section']
-        department = student_data['department']
-        print("id is",student_id, student_name, section, department)
-        # Validate request payload
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "Request body is required"}), 400
-        
-        quiz_id = data['quiz_id']
-        score = data['score']
-
-        if not quiz_id:
-            return jsonify({"error": "quiz_id is required"}), 400
-        if score is None:
-            return jsonify({"error": "score is required"}), 400
-        
-        # Check if the student already has a score for this quiz
-        existing_score = Score.get_by_student_and_quiz(student_id, quiz_id)
-        print("existing score is",existing_score)
-        if existing_score:
-            return jsonify({"message": "Score for this quiz has already been submitted."}), 400
-
-        # Save the new score along with the timestamp
-        submission_time = datetime.now(timezone.utc)  # Use UTC for consistency
-        new_score = Score(
-            student_id=student_id,
-            quiz_id=quiz_id,
-            student_name=student_name,
-            score=score,
-            section=section,
-            department=department,
-            submission_time=submission_time
-        )
-        new_score.save()
-
-        return jsonify({"message": "Score saved successfully!"}), 201
-
-    except Exception as e:
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
-
 
 def get_questions_by_quiz_id():
     try:

@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS students (
     id SERIAL PRIMARY KEY,
+    usn TEXT UNIQUE NOT NULL,  -- This ensures USN is unique for each student
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     section TEXT NOT NULL,
@@ -35,10 +36,11 @@ CREATE TABLE IF NOT EXISTS scores (
     student_name TEXT NOT NULL,
     student_id INTEGER NOT NULL,
     quiz_id INTEGER NOT NULL,
+    usn TEXT NOT NULL,  -- Added usn column
     score INTEGER NOT NULL,
     section TEXT NOT NULL,
     department TEXT NOT NULL,
-    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Store submission time
+    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
     FOREIGN KEY(quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
 );
@@ -53,12 +55,13 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
 );
 
 CREATE TABLE IF NOT EXISTS tab_switch_events (
-  id SERIAL PRIMARY KEY,
-  quiz_id INTEGER NOT NULL,
-  student_id INTEGER NOT NULL,
-  student_name TEXT,
-  timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes (id),
-  CONSTRAINT fk_student FOREIGN KEY (student_id) REFERENCES students (id)
+    id SERIAL PRIMARY KEY,
+    quiz_id INTEGER NOT NULL,
+    student_id INTEGER NOT NULL,
+    student_name TEXT,
+    usn TEXT NOT NULL,  -- Added usn column
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes (id),
+    CONSTRAINT fk_student FOREIGN KEY (student_id) REFERENCES students (id)
 );
 
