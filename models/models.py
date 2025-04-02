@@ -318,12 +318,11 @@ class Score:
                 s.score,
                 s.section,
                 s.department,
-                s.submitted_at AT TIME ZONE 'UTC' AS submission_time,
-                st.usn
+                s.submitted_at,
+                s.usn
             FROM scores s
-            JOIN students st ON s.student_id = st.id
             WHERE s.quiz_id = %s
-            ORDER BY s.score DESC, s.submission_time ASC
+            ORDER BY s.score DESC, s.submitted_at ASC
             ''',
             (quiz_id,)
         )
@@ -332,17 +331,18 @@ class Score:
         return [
             {
                 "id": score[0],
-                "student_id": score[1],
-                "student_name": score[2],
-                "quiz_id": score[3],
-                "score": score[4],
-                "section": score[5],
-                "department": score[6],
-                "submission_time": score[7].isoformat() if score[7] else None,
-                "usn": score[8]  # Add USN to the dictionary
+                "student_id": score[1],  # ✅ Fixed index
+                "student_name": score[2],  # ✅ Fixed index
+                "quiz_id": score[3],  # ✅ Fixed index
+                "score": score[4],  # ✅ Fixed index
+                "section": score[5],  # ✅ Fixed index
+                "department": score[6],  # ✅ Fixed index
+                "submission_time": score[7].isoformat() if score[7] else None,  # ✅ Fixed condition
+                "usn": score[8]  # ✅ Fixed index
             }
             for score in scores
         ] if scores else []
+
 class TabSwitchEvent:
     def __init__(self, quiz_id, student_id, student_name, usn, timestamp, id=None):
         self.id = id

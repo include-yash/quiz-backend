@@ -7,7 +7,7 @@ from itsdangerous.exc import BadSignature, SignatureExpired
 from utils.decode import generate_token,generate_token_student
 
 # Helper function to handle student email parsing
-def parse_student_email(email):
+def parse_student_email(email, isDiploma):
     try:
         # Split the email into the local part and domain part
         local_part, domain_part = email.split('@')
@@ -20,7 +20,7 @@ def parse_student_email(email):
         
         # Extract the batch year (numbers before the '@')
         batch_year = ''.join([char for char in local_part.split('.')[1] if char.isdigit()])
-        
+        batch_year = str(int(batch_year) - 1) if isDiploma else batch_year
         return name, department, batch_year
     except (ValueError, IndexError):
         return None, None, None
@@ -48,7 +48,7 @@ def parse_teacher_email(email):
 def student_signup():
     data = request.json  # Get data from the frontend
     print("data is", data)
-    name, department, batch_year = parse_student_email(data['email']) 
+    name, department, batch_year = parse_student_email(data['email'],data["isDiploma"]) 
 
     # Check if student already exists
     if Student.get_by_email(data['email']):

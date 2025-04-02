@@ -181,8 +181,7 @@ def get_quizzes_by_student_id():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
-from datetime import datetime
-from flask import jsonify
+
 
 def leaderboard(quiz_id):
     try:
@@ -204,6 +203,7 @@ def leaderboard(quiz_id):
                 x['submission_time'] or "9999-12-31"  # Push nulls to end
             )
         )
+        print("sorted scores are",sorted_scores)
 
         # Assign ranks to the sorted scores
         leaderboard_data = []
@@ -223,7 +223,8 @@ def leaderboard(quiz_id):
                 "rank": rank,
                 "student_name": score['student_name'],
                 "score": current_score,
-                "submission_time": current_time or "Not submitted"  # Handle null
+                "submission_time": current_time or "Not submitted",
+                 "usn": score['usn']
             })
             
             previous_score = current_score
