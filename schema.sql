@@ -17,17 +17,31 @@ CREATE TABLE IF NOT EXISTS teachers (
     password TEXT NOT NULL
 );
 
--- Create the quiz table
-CREATE TABLE IF NOT EXISTS quizzes (
-    id SERIAL PRIMARY KEY,  -- Auto-incrementing ID for each quiz
-    quiz_name TEXT NOT NULL, -- Name of the quiz
-    section TEXT NOT NULL, 
+-- Create the unreleased quiz table
+CREATE TABLE IF NOT EXISTS unreleasedTests (
+    id SERIAL PRIMARY KEY,
+    quiz_name TEXT NOT NULL,
+    section TEXT NOT NULL,
     batch_year TEXT NOT NULL,
-    department TEXT NOT NULL, -- Department for which the quiz is intended
-    teacher_id INTEGER NOT NULL, -- ID of the teacher who created the quiz (Foreign Key)
-    questions JSONB NOT NULL, -- JSONB format for better querying
-    timer INTEGER NOT NULL, -- Timer for the quiz (in minutes, for example)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Timestamp when the quiz was created
+    department TEXT NOT NULL,
+    teacher_id INTEGER NOT NULL,
+    questions JSONB NOT NULL,
+    timer INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
+);
+
+-- Create the released quiz table (existing quizzes table)
+CREATE TABLE IF NOT EXISTS quizzes (
+    id SERIAL PRIMARY KEY,
+    quiz_name TEXT NOT NULL,
+    section TEXT NOT NULL,
+    batch_year TEXT NOT NULL,
+    department TEXT NOT NULL,
+    teacher_id INTEGER NOT NULL,
+    questions JSONB NOT NULL,
+    timer INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
 
@@ -36,7 +50,7 @@ CREATE TABLE IF NOT EXISTS scores (
     student_name TEXT NOT NULL,
     student_id INTEGER NOT NULL,
     quiz_id INTEGER NOT NULL,
-    usn TEXT NOT NULL,  -- Added usn column
+    usn TEXT NOT NULL,
     score INTEGER NOT NULL,
     section TEXT NOT NULL,
     department TEXT NOT NULL,
@@ -59,9 +73,8 @@ CREATE TABLE IF NOT EXISTS tab_switch_events (
     quiz_id INTEGER NOT NULL,
     student_id INTEGER NOT NULL,
     student_name TEXT,
-    usn TEXT NOT NULL,  -- Added usn column
+    usn TEXT NOT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes (id),
-    CONSTRAINT fk_student FOREIGN KEY (student_id) REFERENCES students (id)
+    CONSTRAINT fk_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes(id),
+    CONSTRAINT fk_student FOREIGN KEY (student_id) REFERENCES students(id)
 );
-

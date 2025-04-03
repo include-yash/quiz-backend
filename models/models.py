@@ -4,7 +4,7 @@ import json
 class Student:
     def __init__(self, usn, name, email, section, department, batch_year, password, id=None):
         self.id = id 
-        self.usn = usn  # USN is now a required field
+        self.usn = usn
         self.name = name
         self.email = email
         self.section = section
@@ -35,7 +35,6 @@ class Student:
         if not student:
             return None
             
-        # Verify we have all expected columns
         if len(student) < 8:
             raise ValueError("Invalid student data structure from database")
             
@@ -50,10 +49,9 @@ class Student:
             password=student[7]
         )
 
-
 class Teacher:
     def __init__(self, name, email, department, password, id=None):
-        self.id = id  # Optional, as id will be auto-generated
+        self.id = id
         self.name = name
         self.email = email
         self.department = department
@@ -66,7 +64,7 @@ class Teacher:
             'INSERT INTO teachers (name, email, department, password) VALUES (%s, %s, %s, %s) RETURNING id',
             (self.name, self.email, self.department, self.password)
         )
-        self.id = cursor.fetchone()[0]  # Retrieve the last inserted ID
+        self.id = cursor.fetchone()[0]
         db.commit()
 
     @classmethod
@@ -87,35 +85,105 @@ class Teacher:
             )
         return None
 
-
-class Quiz:
+class UnreleasedQuiz:
     def __init__(self, quiz_name, section, batch_year, department, teacher_id, questions, timer, id=None):
-        self.id = id  # This allows id to be optional, especially for new quizzes
+        self.id = id
         self.quiz_name = quiz_name
         self.section = section
         self.batch_year = batch_year
         self.department = department
         self.teacher_id = teacher_id
         self.questions = questions
-        self.timer = timer  # New field for storing timer
+        self.timer = timer
 
     def save(self):
         db = get_db()
         cursor = db.cursor()
-        # Convert questions to JSON string if it's a dictionary
         questions_json = json.dumps(self.questions) if isinstance(self.questions, dict) else self.questions
+        cursor.execute(
+            'INSERT INTO unreleasedTests (quiz_name, section, batch_year, department, teacher_id, questions, timer) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id',
+            (self.quiz_name, self.section, self.batch_year, self.department, self.teacher_id, questions_json, self.timer)
+        )
+        self.id = cursor.fetchone()[0]
+        db.commit()
+
+    @classmethod
+    def get_by_teacher(cls, teacher_id):
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute(
+            'SELECT * FROM unreleasedTests WHERE teacher_id = %s', (teacher_id,)
+        )
+        quizzes = cursor.fetchall()
+        return [
+            {
+                "id": quiz[0],
+                "quiz_name": quiz[1],
+                "section": quiz[2],
+                "batch_year": quiz[3],
+                "department": quiz[4],
+                "teacher_id": quiz[5],
+                "questions": quiz[6],
+                "timer": quiz[7]
+            }
+            for quiz in quizzes
+        ] if quizzes else []
+
+    @classmethod
+    def get_by_id(cls, quiz_id):
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute(
+            'SELECT * FROM unreleasedTests WHERE id = %s', (quiz_id,)
+        )
+        quiz = cursor.fetchone()
+        if quiz:
+            return {
+                "id": quiz[0],
+                "quiz_name": quiz[1],
+                "section": quiz[2],
+                "batch_year": quiz[3],
+                "department": quiz[4],
+                "teacher_id": quiz[5],
+                "questions": quiz[6],  # This is already decoded from JSONB by psycopg2
+                "timer": quiz[7]
+            }
+        return None
+
+    @classmethod
+    def delete_by_id(cls, quiz_id):
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute(
+            'DELETE FROM unreleasedTests WHERE id = %s', (quiz_id,)
+        )
+        db.commit()
+
+class Quiz:
+    def __init__(self, quiz_name, section, batch_year, department, teacher_id, questions, timer, id=None):
+        self.id = id
+        self.quiz_name = quiz_name
+        self.section = section
+        self.batch_year = batch_year
+        self.department = department
+        self.teacher_id = teacher_id
+        self.questions = questions
+        self.timer = timer
+
+    def save(self):
+        db = get_db()
+        cursor = db.cursor()
+        # Ensure questions is a JSON string
+        questions_json = json.dumps(self.questions) if isinstance(self.questions, (dict, list)) else self.questions
         cursor.execute(
             'INSERT INTO quizzes (quiz_name, section, batch_year, department, teacher_id, questions, timer) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id',
             (self.quiz_name, self.section, self.batch_year, self.department, self.teacher_id, questions_json, self.timer)
         )
-        self.id = cursor.fetchone()[0]  # Retrieve the last inserted ID
+        self.id = cursor.fetchone()[0]
         db.commit()
 
     @classmethod
     def get_by_section(cls, section):
-        """
-        Retrieve quizzes from the database by section.
-        """
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
@@ -130,16 +198,13 @@ class Quiz:
                 batch_year=quiz[3],
                 department=quiz[4],
                 teacher_id=quiz[5],
-                questions=quiz[6],  # Assuming questions are stored as JSON string
-                timer=quiz[7]  # Deserialize the timer if needed
+                questions=quiz[6],
+                timer=quiz[7]
             ) for quiz in quizzes]
         return []
 
     @classmethod
     def get_by_teacher(cls, teacher_id):
-        """
-        Retrieve quizzes from the database by teacher_id.
-        """
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
@@ -155,8 +220,8 @@ class Quiz:
                     "batch_year": quiz[3],
                     "department": quiz[4],
                     "teacher_id": quiz[5],
-                    "questions": quiz[6],  # Assuming questions are stringified JSON
-                    "timer": quiz[7]  # Adding timer here
+                    "questions": quiz[6],
+                    "timer": quiz[7]
                 }
                 for quiz in quizzes
             ]
@@ -164,9 +229,6 @@ class Quiz:
 
     @classmethod
     def get_by_name_and_teacher(cls, quiz_name, teacher_id):
-        """
-        Retrieve a quiz from the database by quiz_name and teacher_id.
-        """
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
@@ -182,16 +244,13 @@ class Quiz:
                 batch_year=quiz[3],
                 department=quiz[4],
                 teacher_id=quiz[5],
-                questions=quiz[6],  # Deserialize the JSON questions if needed
-                timer=quiz[7]  # Return the timer value
+                questions=quiz[6],
+                timer=quiz[7]
             )
         return None
 
     @classmethod
     def get_by_section_batch_and_department(cls, section, batch_year, department):
-        """
-        Retrieve quizzes from the database by section, batch_year, and department.
-        """
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
@@ -207,16 +266,13 @@ class Quiz:
                 batch_year=quiz[3],
                 department=quiz[4],
                 teacher_id=quiz[5],
-                questions=quiz[6],  # Deserialize the JSON questions if needed
-                timer=quiz[7]  # Include the timer
+                questions=quiz[6],
+                timer=quiz[7]
             ) for quiz in quizzes]
         return []
     
     @classmethod
     def get_by_name_and_id(cls, quiz_name, quiz_id):
-        """
-        Retrieve a quiz from the database by quiz_name and id.
-        """
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
@@ -232,11 +288,10 @@ class Quiz:
                 "batch_year": quiz[3],
                 "department": quiz[4],
                 "teacher_id": quiz[5],
-                "questions": quiz[6],  # Assuming questions are stored as JSON string
-                "timer": quiz[7]  # Include the timer
+                "questions": quiz[6],
+                "timer": quiz[7]
             }
         return None
-
 
 class Score:
     def __init__(self, student_id, quiz_id, student_name, usn, score, section, department, submission_time, id=None):
@@ -244,7 +299,7 @@ class Score:
         self.student_id = student_id
         self.quiz_id = quiz_id
         self.student_name = student_name
-        self.usn = usn  # Add USN field
+        self.usn = usn
         self.score = score
         self.section = section
         self.department = department
@@ -262,9 +317,6 @@ class Score:
 
     @classmethod
     def get_by_student_and_quiz(cls, student_id, quiz_id):
-        """
-        Retrieve a score for a specific student and quiz as a dictionary.
-        """
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
@@ -282,15 +334,12 @@ class Score:
                 "section": score[5],
                 "department": score[6],
                 "submission_time": score[7].isoformat() if score[7] else None,
-                "usn": score[8]  # Add USN to the dictionary
+                "usn": score[8]
             }
         return None
 
     @classmethod
     def get_quizzes_by_student_id(cls, student_id):
-        """
-        Retrieve unique quiz IDs attempted by a specific student as a list of dictionaries.
-        """
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
@@ -302,10 +351,6 @@ class Score:
 
     @classmethod
     def get_scores_by_quiz(cls, quiz_id):
-        """
-        Retrieve all scores for a specific quiz as a list of dictionaries, including USN.
-        Ensure submission_time is properly formatted as ISO string.
-        """
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
@@ -331,14 +376,14 @@ class Score:
         return [
             {
                 "id": score[0],
-                "student_id": score[1],  # ✅ Fixed index
-                "student_name": score[2],  # ✅ Fixed index
-                "quiz_id": score[3],  # ✅ Fixed index
-                "score": score[4],  # ✅ Fixed index
-                "section": score[5],  # ✅ Fixed index
-                "department": score[6],  # ✅ Fixed index
-                "submission_time": score[7].isoformat() if score[7] else None,  # ✅ Fixed condition
-                "usn": score[8]  # ✅ Fixed index
+                "student_id": score[1],
+                "student_name": score[2],
+                "quiz_id": score[3],
+                "score": score[4],
+                "section": score[5],
+                "department": score[6],
+                "submission_time": score[7].isoformat() if score[7] else None,
+                "usn": score[8]
             }
             for score in scores
         ] if scores else []
@@ -371,9 +416,6 @@ class TabSwitchEvent:
 
     @classmethod
     def get_by_quiz_id(cls, quiz_id):
-        """
-        Retrieve all tab switch events for a specific quiz_id.
-        """
         db = get_db()
         cursor = db.cursor()
         cursor.execute(
