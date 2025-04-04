@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS students (
     id SERIAL PRIMARY KEY,
-    usn TEXT UNIQUE NOT NULL,  -- This ensures USN is unique for each student
+    usn TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     section TEXT NOT NULL,
@@ -17,7 +17,6 @@ CREATE TABLE IF NOT EXISTS teachers (
     password TEXT NOT NULL
 );
 
--- Create the unreleased quiz table
 CREATE TABLE IF NOT EXISTS unreleasedTests (
     id SERIAL PRIMARY KEY,
     quiz_name TEXT NOT NULL,
@@ -27,11 +26,11 @@ CREATE TABLE IF NOT EXISTS unreleasedTests (
     teacher_id INTEGER NOT NULL,
     questions JSONB NOT NULL,
     timer INTEGER NOT NULL,
+    number_of_questions INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
 
--- Create the released quiz table (existing quizzes table)
 CREATE TABLE IF NOT EXISTS quizzes (
     id SERIAL PRIMARY KEY,
     quiz_name TEXT NOT NULL,
@@ -41,6 +40,7 @@ CREATE TABLE IF NOT EXISTS quizzes (
     teacher_id INTEGER NOT NULL,
     questions JSONB NOT NULL,
     timer INTEGER NOT NULL,
+    number_of_questions INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
 );
