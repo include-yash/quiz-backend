@@ -144,33 +144,40 @@ def student_login():
 # Teacher Login function
 def teacher_login():
     data = request.json  # Get login credentials
-    teacher = Teacher.get_by_email(data['email']) 
-    print("teacher details are",teacher) # Find teacher by email
-    teacher_details={
-        'id':teacher.id,
-        'name':teacher.name,
-        'email':teacher.email,
-        'department':teacher.department
-    }
-    print(teacher)
-    if teacher and check_password_hash(teacher.password, data['password']):  # Verify the password
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return jsonify({'error': 'Email and password are required'}), 400
+
+    teacher = Teacher.get_by_email(email)
+
+    if teacher and check_password_hash(teacher.password, password):  # ✅ Only proceed if teacher exists and password matches
+        teacher_details = {
+            'id': teacher.id,
+            'name': teacher.name,
+            'email': teacher.email,
+            'department': teacher.department
+        }
+
         # Generate token
         token = generate_token(teacher)
 
         # Create response with token and cookie
         response = make_response(jsonify({
             'message': 'Login successful',
-            'token': token,  # Include the token in the response body
-            'teacher_details':teacher_details
+            'token': token,
+            'teacher_details': teacher_details
         }))
         response.set_cookie(
             'teacher_info',
             token,
-            httponly=True,  # Protect cookie from JavaScript access
-            secure=True,    # Use HTTPS (set to False for local testing)
-            samesite='Strict'  # Prevent cross-site requests
+            httponly=True,
+            secure=True,       # Use False for local testing if needed
+            samesite='Strict'  # Prevent CSRF
         )
         return response, 200
 
+    # ❗ Either the teacher doesn't exist or password is wrong
     return jsonify({'error': 'Invalid email or password'}), 401
 
