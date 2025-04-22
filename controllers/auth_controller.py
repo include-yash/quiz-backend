@@ -1,3 +1,4 @@
+import os
 from flask import request, jsonify
 from flask import make_response
 from models.models import Student, Teacher
@@ -5,7 +6,100 @@ from werkzeug.security import generate_password_hash, check_password_hash  # Imp
 from itsdangerous.serializer import Serializer
 from itsdangerous.exc import BadSignature, SignatureExpired
 from utils.decode import generate_token,generate_token_student
+import google.auth
+from google.auth.transport.requests import Request
+from google.oauth2 import id_token
+from dotenv import load_dotenv
+load_dotenv()
 
+def google_login():
+    data = request.json  # Get the token from the frontend
+    token = data.get('token')
+
+    if not token:
+        return jsonify({'error': 'Token is required'}), 400
+
+    try:
+        # Verify the Google token
+        CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")  # Replace with your actual Google Client ID
+        idinfo = id_token.verify_oauth2_token(token, Request(), CLIENT_ID)
+
+        # Extract the user's email from the token
+        email = idinfo['email']
+
+        # Check if student exists in the database
+        student = Student.get_by_email(email)
+
+        if student:
+            # Student exists, return the token and student details
+            student_details = {
+                'id': student.id,
+                'usn': student.usn,
+                'name': student.name,
+                'email': student.email,
+                'section': student.section,
+                'department': student.department,
+                'batch_year': student.batch_year,
+            }
+            # Generate JWT for the student
+            token = generate_token_student(student)
+
+            return jsonify({
+                'message': 'Login successful',
+                'token': token,
+                'student_details': student_details
+            }), 200
+        else:
+            # Student does not exist, return a flag to frontend
+            return jsonify({
+                'new_user': True,
+                'email': email
+            }), 200
+
+    except google.auth.exceptions.GoogleAuthError as e:
+        return jsonify({'error': 'Invalid Google token', 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': 'Something went wrong', 'message': str(e)}), 500
+    
+def google_login_teacher():
+    data = request.json
+    token = data.get('token')
+
+    if not token:
+        return jsonify({'error': 'Token is required'}), 400
+
+    try:
+        CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+        idinfo = id_token.verify_oauth2_token(token, Request(), CLIENT_ID)
+
+        email = idinfo['email']
+
+        teacher = Teacher.get_by_email(email)
+        if teacher:
+            teacher_details = {
+                'id': teacher.id,
+                'name': teacher.name,
+                'email': teacher.email,
+                'department': teacher.department
+            }
+
+            token = generate_token(teacher)
+
+            return jsonify({
+                'message': 'Login successful',
+                'token': token,
+                'teacher_details': teacher_details
+            }), 200
+        else:
+            return jsonify({
+                'new_user': True,
+                'email': email
+            }), 200
+
+    except ValueError:
+        return jsonify({'error': 'Invalid Google token'}), 400
+    except Exception as e:
+        return jsonify({'error': 'Something went wrong', 'message': str(e)}), 500
 # Helper function to handle student email parsing
 def parse_student_email(email, isDiploma):
     try:
@@ -132,9 +226,10 @@ def student_login():
             token,                   # Cookie value
             httponly=True,           # Protect cookie from JavaScript access
             secure=False,            # Use True in production (HTTPS), False for local dev
-            samesite='None',         # Allow cross-origin requests (for different ports)
+            samesite='Lax',         # Allow cross-origin requests (for different ports)
             max_age=3600,            # Set expiration time (1 hour)
-            domain='.localhost',  
+            # domain='.localhost',
+              
         )
         
         return response, 200
@@ -173,7 +268,7 @@ def teacher_login():
             'teacher_info',
             token,
             httponly=True,
-            secure=True,       # Use False for local testing if needed
+            secure=False,       # Use False for local testing if needed
             samesite='Strict'  # Prevent CSRF
         )
         return response, 200

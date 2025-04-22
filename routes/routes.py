@@ -1,11 +1,14 @@
 from controllers.home_controller import home_page
-from controllers.auth_controller import teacher_signup, student_signup, student_login, teacher_login
+from controllers.auth_controller import teacher_signup, student_signup, student_login, teacher_login, google_login, google_login_teacher
 from controllers.test_controller import create_quiz
 from controllers.teacher_controller import add_tab_switch_event, get_quizzes_by_teacher, get_tab_switch_events_by_quiz_id, release_quiz
 from controllers.student_controller import get_quizzes_by_student_id, get_quizzes_for_logged_in_student, leaderboard, save_score, get_questions_by_quiz_id
 
 def init_routes(app):
     app.add_url_rule('/', 'home', home_page)
+
+    app.add_url_rule('/auth/google', 'google_login', google_login, methods=['POST'])
+    app.add_url_rule('/auth/google/teacher', 'google_login_teacher', google_login_teacher, methods=['POST'])
     
     app.add_url_rule('/signup/teacher', 'teacher_signup', teacher_signup, methods=['POST'])
     app.add_url_rule('/signup/student', 'student_signup', student_signup, methods=['POST'])
