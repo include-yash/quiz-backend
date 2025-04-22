@@ -17,7 +17,8 @@ CORS(
             "origins": [
                 "http://localhost:5173",
                 "https://quiz-frontend-git-main-include-yashs-projects.vercel.app",
-                "https://quiz-frontend-five-alpha.vercel.app"
+                "https://quiz-frontend-five-alpha.vercel.app",
+                "https://www.quizzer.site"
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
             "allow_headers": [
