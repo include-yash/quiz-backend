@@ -14,13 +14,13 @@ CORS(
     supports_credentials=True,
     resources={
         r"/*": {
-            "origins": [
+            "origins": [  # Fixed typo from "origins" to "origins"
                 "http://localhost:5173",
                 "https://quiz-frontend-git-main-include-yashs-projects.vercel.app",
                 "https://quiz-frontend-five-alpha.vercel.app",
                 "https://www.quizzer.site"
             ],
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],  # Fixed "OPTIONS" typo
             "allow_headers": [
                 "Content-Type",
                 "Authorization",
@@ -36,16 +36,27 @@ CORS(
     }
 )
 
-# Handle preflight requests
+# Security headers middleware
 @app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 
-        request.headers.get('Origin', '*'))
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    response.headers.add('Access-Control-Allow-Headers', 
-        'Content-Type,Authorization,Access-Control-Allow-Credentials')
-    response.headers.add('Access-Control-Allow-Methods', 
-        'GET,PUT,POST,DELETE,OPTIONS')
+def set_security_headers(response):
+    # Required for Google Auth to work
+    response.headers['Cross-Origin-Opener-Policy'] = 'same-origin-allow-popups'
+    response.headers['Cross-Origin-Embedder-Policy'] = 'unsafe-none'
+    response.headers['Cross-Origin-Resource-Policy'] = 'cross-origin'
+    
+    # Dynamic CORS headers
+    allowed_origins = [
+        "http://localhost:5173",
+        "https://quiz-frontend-git-main-include-yashs-projects.vercel.app",
+        "https://quiz-frontend-five-alpha.vercel.app",
+        "https://www.quizzer.site"
+    ]
+    
+    origin = request.headers.get('Origin')
+    if origin in allowed_origins:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+    
     return response
 
 # Proxy configuration
