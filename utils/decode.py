@@ -1,6 +1,10 @@
+import os
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
+from dotenv import load_dotenv
 
-SECRET_KEY = "123455"  # Replace this with a strong secret key
+load_dotenv()
+
+SECRET_KEY = os.getenv('SECRET_KEY')   # Replace this with a strong secret key
 serializer = URLSafeTimedSerializer(SECRET_KEY)
 
 def generate_token(teacher):
