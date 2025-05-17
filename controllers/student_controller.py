@@ -1,5 +1,6 @@
 import json
 import random
+import time
 from flask import request, jsonify
 from models.models import Quiz, Score
 from utils.decode import decode_token
@@ -7,22 +8,30 @@ from datetime import datetime, timezone
 
 def get_quizzes_for_logged_in_student():
     try:
+        total_start = time.time()
+
         token = request.headers.get('Authorization')
-        
+        t1 = time.time()
         student_data = decode_token(token)
+        print(f"[Trace] Token decode: {time.time() - t1:.4f} sec")
+
         if not student_data or 'id' not in student_data:
             return jsonify({"error": "Invalid or expired token"}), 401
-        
+
         student_id = student_data['id']
         department = student_data['department']
         section = student_data['section']
         batch_year = student_data['batch_year']
-        
+
+        t2 = time.time()
         quizzes = Quiz.get_by_section_batch_and_department(section, batch_year, department)
-        
+        print(f"[Trace] Quiz fetch: {time.time() - t2:.4f} sec")
+
         if not quizzes:
+            print(f"[Trace] No quizzes found. Total time: {time.time() - total_start:.4f} sec")
             return jsonify({"message": "No quizzes found for your department, section, and batch year"}), 200
-        
+
+        t3 = time.time()
         quizzes_data = [
             {
                 "id": quiz.id,
@@ -32,15 +41,18 @@ def get_quizzes_for_logged_in_student():
                 "department": quiz.department,
                 "teacher_id": quiz.teacher_id,
                 "timer": quiz.timer,
-                "number_of_questions": quiz.number_of_questions  # New field
+                "number_of_questions": quiz.number_of_questions
             }
             for quiz in quizzes
         ]
-        
+        print(f"[Trace] Serialization: {time.time() - t3:.4f} sec")
+
+        print(f"[Trace] Total route time: {time.time() - total_start:.4f} sec")
         return jsonify({"quizzes": quizzes_data}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 def save_score():
     try:
@@ -190,7 +202,7 @@ def leaderboard(quiz_id):
                 x['submission_time'] or "9999-12-31"
             )
         )
-        print("sorted scores are", sorted_scores)
+        # print("sorted scores are", sorted_scores)
 
         leaderboard_data = []
         rank = 1

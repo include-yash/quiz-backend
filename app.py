@@ -1,9 +1,12 @@
 import os
-from flask import Flask, request
+import time
+from flask import Flask, g, request
 from routes.routes import init_routes
 from db.db import init_app
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
+from flask import Flask, jsonify, request
+
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -36,16 +39,29 @@ CORS(
     }
 )
 
-# Handle preflight requests
+# Track request start time
+@app.before_request
+def start_timer():
+    g.start = time.time()
+
+
+# Handle preflight requests and log response time
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 
-        request.headers.get('Origin', '*'))
+    # CORS headers
+    response.headers.add(
+        'Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
     response.headers.add('Access-Control-Allow-Credentials', 'true')
-    response.headers.add('Access-Control-Allow-Headers', 
-        'Content-Type,Authorization,Access-Control-Allow-Credentials')
-    response.headers.add('Access-Control-Allow-Methods', 
-        'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Headers',
+                         'Content-Type,Authorization,Access-Control-Allow-Credentials')
+    response.headers.add('Access-Control-Allow-Methods',
+                         'GET,PUT,POST,DELETE,OPTIONS')
+
+    # Log request time
+    if hasattr(g, 'start'):
+        duration = time.time() - g.start
+        print(f"[{request.method}] {request.path} took {duration:.4f} seconds")
+
     return response
 
 # Proxy configuration

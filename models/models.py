@@ -1,3 +1,4 @@
+import time
 from db.db import get_db
 import json
 import logging
@@ -260,8 +261,11 @@ class Quiz:
 
     @classmethod
     def get_by_section_batch_and_department(cls, section, batch_year, department):
+        start = time.time()
         db = get_db()
         cursor = db.cursor()
+        print(f"[Trace] DB connect + cursor: {time.time() - start:.4f} sec")
+
         try:
             cursor.execute(
                 'SELECT * FROM quizzes WHERE section = %s AND batch_year = %s AND department = %s',
@@ -365,6 +369,8 @@ class Score:
         except Exception as e:
             logger.error(f"Error fetching quiz IDs for student {student_id}: {str(e)}")
             raise
+        finally:
+            cursor.close()
 
     @classmethod
     def get_scores_by_quiz(cls, quiz_id):

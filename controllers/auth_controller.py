@@ -61,6 +61,8 @@ def google_login():
     except Exception as e:
         return jsonify({'error': 'Something went wrong', 'message': str(e)}), 500
     
+
+
 def google_login_teacher():
     data = request.json
     token = data.get('token')
@@ -69,13 +71,17 @@ def google_login_teacher():
         return jsonify({'error': 'Token is required'}), 400
 
     try:
+        # Step 1: Verify Google ID token
         CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
         idinfo = id_token.verify_oauth2_token(token, Request(), CLIENT_ID)
 
+        # Step 2: Get email from Google token
         email = idinfo['email']
 
+        # Step 3: Lookup teacher by email
         teacher = Teacher.get_by_email(email)
         if teacher:
+            # Step 4: Prepare teacher details
             teacher_details = {
                 'id': teacher.id,
                 'name': teacher.name,
@@ -83,14 +89,25 @@ def google_login_teacher():
                 'department': teacher.department
             }
 
-            token = generate_token(teacher)
+            # Step 5: Generate app token
+            app_token = generate_token(teacher)
 
-            return jsonify({
+            # Step 6: Build response and set cookie
+            response = make_response(jsonify({
                 'message': 'Login successful',
-                'token': token,
+                'token': app_token,
                 'teacher_details': teacher_details
-            }), 200
+            }))
+            response.set_cookie(
+                'teacher_info',
+                app_token,
+                httponly=True,
+                secure=False,       # Set to True in production (HTTPS)
+                samesite='Strict'
+            )
+            return response, 200
         else:
+            # If teacher doesn't exist yet
             return jsonify({
                 'new_user': True,
                 'email': email
@@ -100,6 +117,8 @@ def google_login_teacher():
         return jsonify({'error': 'Invalid Google token'}), 400
     except Exception as e:
         return jsonify({'error': 'Something went wrong', 'message': str(e)}), 500
+
+
 # Helper function to handle student email parsing
 def parse_student_email(email, isDiploma):
     try:
