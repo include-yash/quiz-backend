@@ -3,7 +3,7 @@ from locust import HttpUser, task, between
 class StudentUser(HttpUser):
     wait_time = between(1, 2)
 
-    token = ".eJwVyzEOgCAMheG7dGahbozGxcHJAxjERhqlGsDBGO9uHd_38j_AC7gGDVxFwIFtB8R-tNiAAfGJ1IS3yHthWaPiQqfPNZFUvbioFAqVj7_udM2-hjjd5LMCIrwfsXQd8w.aCfsXQ.YY9FMdHr6iXfJdpvu2e-UwYYo_4"
+    token = ".eJwVyzEOgCAMheG7dGahbozGxcHJAxjERhqlGsDBGO9uHd_38j_AC7gGDVxFwIFtB8R-tNiAAfGJ1IS3yHthWaPiQqfPNZFUvbioFAqVj7_udM2-hjjd5LMCIrwfsXQd8w.aCh7wQ.Vu_hjGMIdOagt_w9bhL6TOPhKSQ"
 
 
     @task
