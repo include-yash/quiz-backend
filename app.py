@@ -56,6 +56,7 @@ def after_request(response):
                          'Content-Type,Authorization,Access-Control-Allow-Credentials')
     response.headers.add('Access-Control-Allow-Methods',
                          'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
 
     # Log request time
     if hasattr(g, 'start'):
