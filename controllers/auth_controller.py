@@ -11,56 +11,60 @@ from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 from dotenv import load_dotenv
 load_dotenv()
+import traceback
 
 def google_login():
-    data = request.json  # Get the token from the frontend
-    token = data.get('token')
-
-    if not token:
-        return jsonify({'error': 'Token is required'}), 400
-
     try:
-        # Verify the Google token
-        CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")  # Replace with your actual Google Client ID
+        data = request.get_json(force=True)
+        token = data.get('token')
+
+        if not token:
+            print("[ERROR] Missing token from request.")
+            return jsonify({'error': 'Token is required'}), 400
+
+        print("[DEBUG] Received token:", token[:20])  # Do not log full token in production
+
+        CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+        if not CLIENT_ID:
+            print("[ERROR] Missing GOOGLE_CLIENT_ID in environment.")
+            return jsonify({'error': 'Server config error'}), 500
+
         idinfo = id_token.verify_oauth2_token(token, Request(), CLIENT_ID)
+        email = idinfo.get('email')
+        print("[DEBUG] Verified Google token for email:", email)
 
-        # Extract the user's email from the token
-        email = idinfo['email']
-
-        # Check if student exists in the database
         student = Student.get_by_email(email)
 
         if student:
-            # Student exists, return the token and student details
-            student_details = {
-                'id': student.id,
-                'usn': student.usn,
-                'name': student.name,
-                'email': student.email,
-                'section': student.section,
-                'department': student.department,
-                'batch_year': student.batch_year,
-            }
-            # Generate JWT for the student
             token = generate_token_student(student)
+            print(f"[INFO] Returning token for student {student.email}")
 
             return jsonify({
                 'message': 'Login successful',
                 'token': token,
-                'student_details': student_details
+                'student_details': {
+                    'id': student.id,
+                    'usn': student.usn,
+                    'name': student.name,
+                    'email': student.email,
+                    'section': student.section,
+                    'department': student.department,
+                    'batch_year': student.batch_year,
+                }
             }), 200
         else:
-            # Student does not exist, return a flag to frontend
-            return jsonify({
-                'new_user': True,
-                'email': email
-            }), 200
+            print(f"[INFO] New student signup attempt: {email}")
+            return jsonify({'new_user': True, 'email': email}), 200
 
-    except google.auth.exceptions.GoogleAuthError as e:
-        return jsonify({'error': 'Invalid Google token', 'message': str(e)}), 400
+    except ValueError as ve:
+        print("[ERROR] Google token validation error:", ve)
+        return jsonify({'error': 'Invalid Google token'}), 400
+
     except Exception as e:
+        print("[ERROR] Server error during Google login:")
+        traceback.print_exc()
         return jsonify({'error': 'Something went wrong', 'message': str(e)}), 500
-    
+   
 
 
 def google_login_teacher():
@@ -71,17 +75,22 @@ def google_login_teacher():
         return jsonify({'error': 'Token is required'}), 400
 
     try:
-        # Step 1: Verify Google ID token
+        # ✅ Step 1: Verify the Google ID token
         CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+        if not CLIENT_ID:
+            raise ValueError("Missing GOOGLE_CLIENT_ID in environment")
+
         idinfo = id_token.verify_oauth2_token(token, Request(), CLIENT_ID)
 
-        # Step 2: Get email from Google token
-        email = idinfo['email']
+        # ✅ Step 2: Extract user email
+        email = idinfo.get('email')
+        if not email:
+            return jsonify({'error': 'Email not found in token'}), 400
 
-        # Step 3: Lookup teacher by email
+        # ✅ Step 3: Find teacher in DB
         teacher = Teacher.get_by_email(email)
         if teacher:
-            # Step 4: Prepare teacher details
+            # ✅ Step 4: Create teacher details
             teacher_details = {
                 'id': teacher.id,
                 'name': teacher.name,
@@ -89,35 +98,28 @@ def google_login_teacher():
                 'department': teacher.department
             }
 
-            # Step 5: Generate app token
+            # ✅ Step 5: Generate JWT
             app_token = generate_token(teacher)
 
-            # Step 6: Build response and set cookie
-            response = make_response(jsonify({
+            # ✅ Step 6: Return response
+            return jsonify({
                 'message': 'Login successful',
                 'token': app_token,
                 'teacher_details': teacher_details
-            }))
-            response.set_cookie(
-                'teacher_info',
-                app_token,
-                httponly=True,
-                secure=False,       # Set to True in production (HTTPS)
-                samesite='Strict'
-            )
-            return response, 200
+            }), 200
+
         else:
-            # If teacher doesn't exist yet
+            # New teacher (not registered yet)
             return jsonify({
                 'new_user': True,
                 'email': email
             }), 200
 
-    except ValueError:
-        return jsonify({'error': 'Invalid Google token'}), 400
+    except ValueError as ve:
+        return jsonify({'error': 'Invalid Google token', 'message': str(ve)}), 400
+
     except Exception as e:
         return jsonify({'error': 'Something went wrong', 'message': str(e)}), 500
-
 
 # Helper function to handle student email parsing
 def parse_student_email(email, isDiploma):
@@ -244,7 +246,7 @@ def student_login():
             'student_info',          # Cookie name
             token,                   # Cookie value
             httponly=True,           # Protect cookie from JavaScript access
-            secure=False,            # Use True in production (HTTPS), False for local dev
+            secure=True,            # Use True in production (HTTPS), False for local dev
             samesite='Lax',         # Allow cross-origin requests (for different ports)
             max_age=3600,            # Set expiration time (1 hour)
             # domain='.localhost',
@@ -287,7 +289,7 @@ def teacher_login():
             'teacher_info',
             token,
             httponly=True,
-            secure=False,       # Use False for local testing if needed
+            secure=True,       # Use False for local testing if needed
             samesite='Strict'  # Prevent CSRF
         )
         return response, 200
