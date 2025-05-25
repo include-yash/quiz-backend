@@ -111,16 +111,20 @@ class Teacher:
 
     @classmethod
     def get_by_email(cls, email):
-        db = get_db()
-        cursor = db.cursor()
+        engine = get_db_engine()
         try:
-            cursor.execute('SELECT * FROM teachers WHERE email = %s', (email,))
-            teacher = cursor.fetchone()
-            if teacher:
-                logger.debug(f"Retrieved teacher with email {email}")
-                return cls(id=teacher[0], name=teacher[1], email=teacher[2], department=teacher[3], password=teacher[4])
-            logger.debug(f"No teacher found with email {email}")
-            return None
+            with engine.connect() as conn:
+                query = text('SELECT * FROM teachers WHERE email = :email')
+                result = conn.execute(query, {"email": email})
+                teacher = result.fetchone()
+                if teacher:
+                    logger.debug(f"Retrieved teacher with email {email}")
+                    return cls(
+                        id=teacher[0], name=teacher[1], email=teacher[2],
+                        department=teacher[3], password=teacher[4]
+                    )
+                logger.debug(f"No teacher found with email {email}")
+                return None
         except Exception as e:
             logger.error(f"Error fetching teacher by email {email}: {str(e)}")
             raise
