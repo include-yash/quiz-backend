@@ -1,7 +1,10 @@
 import time
+
+from sqlalchemy import text
 from db.db import get_db
 import json
 import logging
+from db.db import get_db_engine
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -32,28 +35,39 @@ class Student:
             logger.error(f"Error saving student: {str(e)}")
             raise
 
+   
     @classmethod
     def get_by_email(cls, email):
-        db = get_db()
-        cursor = db.cursor()
+        engine = get_db_engine()
         try:
-            cursor.execute(
-                'SELECT id, usn, name, email, section, department, batch_year, password FROM students WHERE email = %s', 
-                (email,)
-            )
-            student = cursor.fetchone()
-            if not student:
-                logger.debug(f"No student found with email {email}")
-                return None
-            if len(student) < 8:
-                raise ValueError("Invalid student data structure from database")
-            logger.debug(f"Retrieved student with email {email}")
-            return cls(
-                id=student[0], usn=student[1], name=student[2], email=student[3],
-                section=student[4], department=student[5], batch_year=student[6], password=student[7]
-            )
+            with engine.connect() as conn:
+                query = text(
+                    'SELECT id, usn, name, email, section, department, batch_year, password '
+                    'FROM students WHERE email = :email'
+                )
+                result = conn.execute(query, {"email": email})
+                student = result.fetchone()
+
+                if not student:
+                    logger.debug(f"No student found with email {email}")
+                    return None
+
+                if len(student) < 8:
+                    raise ValueError("Invalid student data structure from database")
+
+                logger.debug(f"Retrieved student with email {email}")
+                return cls(
+                    id=student.id,
+                    usn=student.usn,
+                    name=student.name,
+                    email=student.email,
+                    section=student.section,
+                    department=student.department,
+                    batch_year=student.batch_year,
+                    password=student.password
+                )
         except Exception as e:
-            logger.error(f"Error fetching student by email {email}: {str(e)}")
+            logger.error(f"Error fetching student by email {email}: {str(e)}", exc_info=True)
             raise
 
 class Teacher:
@@ -258,53 +272,43 @@ class Quiz:
         except Exception as e:
             logger.error(f"Error fetching quiz by name {quiz_name} and teacher {teacher_id}: {str(e)}")
             raise
-
+    
+    
     @classmethod
     def get_by_section_batch_and_department(cls, section, batch_year, department):
         start = time.time()
-        db = get_db()
-        cursor = db.cursor()
-        print(f"[Trace] DB connect + cursor: {time.time() - start:.4f} sec")
+        engine = get_db_engine()
 
         try:
-            cursor.execute(
-                'SELECT * FROM quizzes WHERE section = %s AND batch_year = %s AND department = %s',
-                (section, batch_year, department)
-            )
-            quizzes = cursor.fetchall()
-            logger.debug(f"Retrieved {len(quizzes)} quizzes for section {section}, batch {batch_year}, dept {department}")
-            return [cls(
-                id=quiz[0], quiz_name=quiz[1], section=quiz[2], batch_year=quiz[3],
-                department=quiz[4], teacher_id=quiz[5], questions=quiz[6],
-                timer=quiz[7], number_of_questions=quiz[8]
-            ) for quiz in quizzes] if quizzes else []
+            with engine.connect() as conn:
+                logger.debug(f"[Trace] DB connect + cursor: {time.time() - start:.4f} sec")
+
+                query = text(
+                    "SELECT id, quiz_name, section, batch_year, department, teacher_id, questions, timer, number_of_questions "
+                    "FROM quizzes WHERE section = :section AND batch_year = :batch_year AND department = :department"
+                )
+                result = conn.execute(query, {"section": section, "batch_year": batch_year, "department": department})
+                quizzes = result.fetchall()
+
+                logger.info(f"📋 Retrieved {len(quizzes)} quizzes in {time.time() - start:.4f}s for section={section}, batch={batch_year}, dept={department}")
+
+                return [
+                    cls(
+                        id=row.id,
+                        quiz_name=row.quiz_name,
+                        section=row.section,
+                        batch_year=row.batch_year,
+                        department=row.department,
+                        teacher_id=row.teacher_id,
+                        questions=row.questions,
+                        timer=row.timer,
+                        number_of_questions=row.number_of_questions
+                    ) for row in quizzes
+                ] if quizzes else []
+
         except Exception as e:
             logger.error(f"Error fetching quizzes for section {section}, batch {batch_year}, dept {department}: {str(e)}")
             raise
-
-    @classmethod
-    def get_by_name_and_id(cls, quiz_name, quiz_id):
-        db = get_db()
-        cursor = db.cursor()
-        try:
-            cursor.execute(
-                'SELECT * FROM quizzes WHERE quiz_name = %s AND id = %s',
-                (quiz_name, quiz_id)
-            )
-            quiz = cursor.fetchone()
-            if quiz:
-                logger.debug(f"Retrieved quiz {quiz_name} with ID {quiz_id}")
-                return {
-                    "id": quiz[0], "quiz_name": quiz[1], "section": quiz[2], "batch_year": quiz[3],
-                    "department": quiz[4], "teacher_id": quiz[5], "questions": quiz[6],
-                    "timer": quiz[7], "number_of_questions": quiz[8]
-                }
-            logger.debug(f"No quiz found with name {quiz_name} and ID {quiz_id}")
-            return None
-        except Exception as e:
-            logger.error(f"Error fetching quiz by name {quiz_name} and ID {quiz_id}: {str(e)}")
-            raise
-
 class Score:
     def __init__(self, student_id, quiz_id, student_name, usn, score, section, department, submission_time, id=None):
         self.id = id
@@ -356,21 +360,16 @@ class Score:
 
     @classmethod
     def get_quizzes_by_student_id(cls, student_id):
-        db = get_db()
-        cursor = db.cursor()
+        db = get_db()  # This returns a SQLAlchemy Connection object
         try:
-            cursor.execute(
-                'SELECT DISTINCT quiz_id FROM scores WHERE student_id = %s',
-                (student_id,)
-            )
-            quizzes = cursor.fetchall()
+            query = text('SELECT DISTINCT quiz_id FROM scores WHERE student_id = :student_id')
+            result = db.execute(query, {"student_id": student_id})
+            quizzes = result.fetchall()
             logger.debug(f"Retrieved {len(quizzes)} quiz IDs for student {student_id}")
             return [{"quiz_id": quiz[0]} for quiz in quizzes] if quizzes else []
         except Exception as e:
             logger.error(f"Error fetching quiz IDs for student {student_id}: {str(e)}")
             raise
-        finally:
-            cursor.close()
 
     @classmethod
     def get_scores_by_quiz(cls, quiz_id):

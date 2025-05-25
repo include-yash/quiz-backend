@@ -5,30 +5,40 @@ from flask import request, jsonify
 from models.models import Quiz, Score
 from utils.decode import decode_token
 from datetime import datetime, timezone
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)  
 
 def get_quizzes_for_logged_in_student():
     try:
         total_start = time.time()
 
         token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({"error": "Authorization header missing"}), 401
+
         t1 = time.time()
         student_data = decode_token(token)
-        print(f"[Trace] Token decode: {time.time() - t1:.4f} sec")
+        logger.debug(f"[Trace] Token decode: {time.time() - t1:.4f} sec")
 
         if not student_data or 'id' not in student_data:
             return jsonify({"error": "Invalid or expired token"}), 401
 
         student_id = student_data['id']
-        department = student_data['department']
-        section = student_data['section']
-        batch_year = student_data['batch_year']
+        department = student_data.get('department')
+        section = student_data.get('section')
+        batch_year = student_data.get('batch_year')
+
+        if not all([department, section, batch_year]):
+            return jsonify({"error": "Incomplete student profile data"}), 400
 
         t2 = time.time()
         quizzes = Quiz.get_by_section_batch_and_department(section, batch_year, department)
-        print(f"[Trace] Quiz fetch: {time.time() - t2:.4f} sec")
+        logger.debug(f"[Trace] Quiz fetch: {time.time() - t2:.4f} sec")
 
         if not quizzes:
-            print(f"[Trace] No quizzes found. Total time: {time.time() - total_start:.4f} sec")
+            logger.debug(f"[Trace] No quizzes found. Total time: {time.time() - total_start:.4f} sec")
             return jsonify({"message": "No quizzes found for your department, section, and batch year"}), 200
 
         t3 = time.time()
@@ -45,13 +55,14 @@ def get_quizzes_for_logged_in_student():
             }
             for quiz in quizzes
         ]
-        print(f"[Trace] Serialization: {time.time() - t3:.4f} sec")
+        logger.debug(f"[Trace] Serialization: {time.time() - t3:.4f} sec")
 
-        print(f"[Trace] Total route time: {time.time() - total_start:.4f} sec")
+        logger.debug(f"[Trace] Total route time: {time.time() - total_start:.4f} sec")
         return jsonify({"quizzes": quizzes_data}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in get_quizzes_for_logged_in_student: {str(e)}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
 
 
 def save_score():
