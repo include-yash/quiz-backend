@@ -11,10 +11,6 @@ from flask import Flask, jsonify, request
 # Initialize Flask app
 app = Flask(__name__)
 
-@app.route("/healthz")
-def health_check():
-    return "OK", 200
-
 
 # Enhanced CORS configuration
 CORS(
@@ -77,6 +73,11 @@ app.wsgi_app = ProxyFix(app.wsgi_app,
 # Initialize database and routes
 init_app(app)
 init_routes(app)
+
+# health check endpoint
+@app.route("/healthz")
+def health_check():
+    return "OK", 200
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
