@@ -11,6 +11,11 @@ from flask import Flask, jsonify, request
 # Initialize Flask app
 app = Flask(__name__)
 
+@app.route("/healthz")
+def health_check():
+    return "OK", 200
+
+
 # Enhanced CORS configuration
 CORS(
     app,
