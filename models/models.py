@@ -1,18 +1,35 @@
+from datetime import datetime
 import time
 
-from sqlalchemy import text
+from sqlalchemy import DateTime, Text
+from sqlalchemy import Column, Integer, String, text
 from db.db import get_db
 import json
 import logging
 from db.db import get_db_engine
+from sqlalchemy.orm import declarative_base
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class Student:
+Base = declarative_base()
+
+class Student(Base):
+    __tablename__ = 'students'
+
+    id = Column(Integer, primary_key=True)
+    usn = Column(String, unique=True, nullable=False)
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, nullable=False)
+    section = Column(String, nullable=False)
+    department = Column(String, nullable=False)
+    batch_year = Column(String, nullable=False)
+    password = Column(String, nullable=False)
+
     def __init__(self, usn, name, email, section, department, batch_year, password, id=None):
-        self.id = id 
+        self.id = id
         self.usn = usn
         self.name = name
         self.email = email
@@ -24,7 +41,7 @@ class Student:
     def save(self):
         engine = get_db_engine()
         try:
-            with engine.connect() as conn:
+            with engine.begin() as conn:
                 query = text(
                     'INSERT INTO students (usn, name, email, section, department, batch_year, password) '
                     'VALUES (:usn, :name, :email, :section, :department, :batch_year, :password) '
@@ -80,7 +97,15 @@ class Student:
             logger.error(f"Error fetching student by email {email}: {str(e)}", exc_info=True)
             raise
 
-class Teacher:
+class Teacher(Base):
+    __tablename__ = 'teachers'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, nullable=False)
+    department = Column(String, nullable=False)
+    password = Column(String, nullable=False)
+
     def __init__(self, name, email, department, password, id=None):
         self.id = id
         self.name = name
@@ -91,7 +116,7 @@ class Teacher:
     def save(self):
         engine = get_db_engine()
         try:
-            with engine.connect() as conn:
+            with engine.begin() as conn:
                 query = text(
                     'INSERT INTO teachers (name, email, department, password) '
                     'VALUES (:name, :email, :department, :password) '
@@ -129,7 +154,19 @@ class Teacher:
             logger.error(f"Error fetching teacher by email {email}: {str(e)}")
             raise
 
-class UnreleasedQuiz:
+class UnreleasedQuiz(Base):
+    __tablename__ = 'unreleased_quizzes'
+
+    id = Column(Integer, primary_key=True)
+    quiz_name = Column(String, nullable=False)
+    section = Column(String, nullable=False)
+    batch_year = Column(String, nullable=False)
+    department = Column(String, nullable=False)
+    teacher_id = Column(Integer, nullable=False)
+    questions = Column(Text, nullable=False)  # storing JSON as string
+    timer = Column(Integer, nullable=False)
+    number_of_questions = Column(Integer, default=0)
+
     def __init__(self, quiz_name, section, batch_year, department, teacher_id, questions, timer, number_of_questions=0, id=None):
         self.id = id
         self.quiz_name = quiz_name
@@ -144,7 +181,7 @@ class UnreleasedQuiz:
     def save(self):
         engine = get_db_engine()
         try:
-            with engine.connect() as conn:
+            with engine.begin() as conn:
                 questions_json = self.questions if isinstance(self.questions, str) else json.dumps(self.questions)
 
                 query = text(
@@ -230,7 +267,7 @@ class UnreleasedQuiz:
     def delete_by_id(cls, quiz_id):
         engine = get_db_engine()
         try:
-            with engine.connect() as conn:
+            with engine.begin() as conn:
                 query = text('DELETE FROM unreleasedTests WHERE id = :quiz_id')
                 conn.execute(query, {'quiz_id': quiz_id})
                 logger.info(f"🗑️ Deleted unreleased quiz with ID {quiz_id}")
@@ -238,7 +275,20 @@ class UnreleasedQuiz:
             logger.error(f"❌ Error deleting unreleased quiz with ID {quiz_id}: {str(e)}")
             raise
 
-class Quiz:
+class Quiz(Base):
+    __tablename__ = 'quizzes'
+
+    id = Column(Integer, primary_key=True)
+    quiz_name = Column(String, nullable=False)
+    section = Column(String, nullable=False)
+    batch_year = Column(String, nullable=False)
+    department = Column(String, nullable=False)
+    teacher_id = Column(Integer, nullable=False)
+    questions = Column(Text, nullable=False)
+    timer = Column(Integer, nullable=False)
+    number_of_questions = Column(Integer, default=0)
+
+
     def __init__(self, quiz_name, section, batch_year, department, teacher_id, questions, timer, number_of_questions=0, id=None):
         self.id = id
         self.quiz_name = quiz_name
@@ -255,7 +305,7 @@ class Quiz:
         try:
             questions_json = self.questions if isinstance(self.questions, str) else json.dumps(self.questions)
 
-            with engine.connect() as conn:
+            with engine.begin() as conn:
                 query = text(
                     'INSERT INTO quizzes (quiz_name, section, batch_year, department, teacher_id, questions, timer, number_of_questions) '
                     'VALUES (:quiz_name, :section, :batch_year, :department, :teacher_id, :questions, :timer, :number_of_questions) '
@@ -429,7 +479,20 @@ class Quiz:
         except Exception as e:
             logger.error(f"Error fetching quizzes for section {section}, batch {batch_year}, dept {department}: {str(e)}")
             raise
-class Score:
+class Score(Base):
+    __tablename__ = 'scores'
+
+    id = Column(Integer, primary_key=True)
+    student_id = Column(Integer, nullable=False)
+    quiz_id = Column(Integer, nullable=False)
+    student_name = Column(String, nullable=False)
+    usn = Column(String, nullable=False)
+    score = Column(Integer, nullable=False)
+    section = Column(String, nullable=False)
+    department = Column(String, nullable=False)
+    submission_time = Column(DateTime, default=datetime.utcnow)
+
+
     def __init__(self, student_id, quiz_id, student_name, usn, score, section, department, submission_time, id=None):
         self.id = id
         self.student_id = student_id
@@ -444,7 +507,7 @@ class Score:
     def save(self):
         engine = get_db_engine()
         try:
-            with engine.connect() as conn:
+            with engine.begin() as conn:
                 query = text(
                     'INSERT INTO scores (student_id, quiz_id, student_name, usn, score, section, department, submitted_at) '
                     'VALUES (:student_id, :quiz_id, :student_name, :usn, :score, :section, :department, :submitted_at) RETURNING id'
@@ -543,7 +606,16 @@ class Score:
         except Exception as e:
             logger.error(f"❌ Error fetching scores for quiz {quiz_id}: {str(e)}")
             raise
-class TabSwitchEvent:
+class TabSwitchEvent(Base):
+    __tablename__ = 'tab_switch_events'
+
+    id = Column(Integer, primary_key=True)
+    quiz_id = Column(Integer, nullable=False)
+    student_id = Column(Integer, nullable=False)
+    student_name = Column(String, nullable=False)
+    usn = Column(String, nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+
     def __init__(self, quiz_id, student_id, student_name, usn, timestamp, id=None):
         self.id = id
         self.quiz_id = quiz_id
@@ -555,7 +627,7 @@ class TabSwitchEvent:
     def save(self):
         engine = get_db_engine()
         try:
-            with engine.connect() as conn:
+            with engine.begin() as conn:
                 query = text('''
                     INSERT INTO tab_switch_events 
                         (quiz_id, student_id, student_name, usn, timestamp) 
