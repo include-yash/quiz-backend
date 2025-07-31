@@ -96,13 +96,25 @@ def get_tab_switch_events_by_quiz_id(quiz_id):
 
         logger.debug(f"Fetching tab switch events for quiz {quiz_id}")
         events = TabSwitchEvent.get_by_quiz_id(quiz_id)
+
         
-        events_data = [event.__dict__ for event in events]
+        events_data = [
+            {
+                "id": event.id,
+                "student_name": getattr(event, "student_name", "Unknown"),
+                "usn": getattr(event, "usn", "N/A"),
+                "timestamp": event.timestamp.isoformat() if hasattr(event.timestamp, "isoformat") else str(event.timestamp),
+            }
+            for event in events
+        ]
+
         logger.info(f"Retrieved {len(events_data)} tab switch events for quiz {quiz_id}")
         return jsonify({"tab_switch_events": events_data}), 200
+
     except Exception as e:
         logger.error(f"Error in get_tab_switch_events_by_quiz_id: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
 
 def release_quiz():
     try:
